@@ -22,6 +22,50 @@ module hecras_IO
         END IF 
     END FUNCTION
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    FUNCTION count_file_lines(input_file_unit_no)
+        ! Count the number of lines in input_file_unit_no
+        INTEGER(dp):: input_file_unit_no
+        INTEGER(dp):: count_file_lines
+
+        INTEGER(dp)::io_test=0
+
+        rewind(input_file_unit_no) ! Start of file
+
+        count_file_lines=0
+        DO WHILE (io_test>=0)
+            READ(input_file_unit_no,*, iostat=io_test)
+            IF(io_test>=0) count_file_lines=count_file_lines+1 
+        END DO
+
+        rewind(input_file_unit_no) ! Start of file
+    END FUNCTION
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE read_character_file(input_file_unit_no, output_lines, format_string)
+        ! Read the entire contents of input_file_unit_no into the allocatable
+        ! character array 'output_lines'
+        INTEGER(dp), INTENT(IN):: input_file_unit_no
+        CHARACTER(len=charlen), INTENT(IN):: format_string
+        CHARACTER(len=charlen), ALLOCATABLE, INTENT(INOUT):: output_lines(:)
+
+        INTEGER(dp):: num_lines, i, io_test=0
+
+        ! Clean out 'output_lines' in case it is already allocated
+        if(allocated(output_lines)) deallocate(output_lines)
+
+        ! Count how many lines we will need
+        num_lines=count_file_lines(input_file_unit_no)
+        allocate(output_lines(num_lines))
+
+        print*, 'reading file ...' 
+        !stop
+        DO i=1,num_lines
+            read(input_file_unit_no, format_string, iostat=io_test) output_lines(i) 
+            !print*, trim(output_lines(i))
+        END DO
+        rewind(input_file_unit_no)
+
+    END SUBROUTINE
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     SUBROUTINE next_match(input_file_unit_no, pattern, io_test, format_string)
         ! If input_file_unit_no is open for reading, advance to the next line
@@ -73,7 +117,43 @@ module hecras_IO
         ! Back to start of file
         rewind(input_file_unit_no)
     END SUBROUTINE COUNT_REACHES
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE find_line_matches(lines, pattern, indices)
+        ! Find the indices in 'lines' (character vector of length 'n') which match with 'pattern'
+        ! FIXME: Presently, pattern must be at the start of the string
+        CHARACTER(len=charlen), INTENT(IN):: lines(:), pattern
+        INTEGER(dp), allocatable, INTENT(OUT):: indices(:)
 
+        INTEGER(dp):: pos, i, n, counter
+        CHARACTER(len=charlen):: mychar
+
+        ! Remove indices if already exists
+        if(allocated(indices)) deallocate(indices)
+
+        n=len_trim(pattern) ! Length of pattern
+
+        ! Count occurrences of pattern (so we know size to allocate)
+        counter=0
+        DO i=1,size(lines)
+            mychar=lines(i)
+            IF(mychar(1:n)==pattern) THEN
+                counter=counter+1
+            END IF
+        END DO
+
+        IF(counter>0) THEN
+            ALLOCATE(indices(counter))
+            counter=0
+            DO i=1,size(lines)
+                mychar=lines(i)
+                IF(mychar(1:n)==pattern) THEN
+                    counter=counter+1
+                    indices(counter)=i
+                END IF
+            END DO
+        END IF
+            
+    END SUBROUTINE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE COUNT_XSECTIONS(input_file_unit_no, reach_data, num_reaches)
         INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
