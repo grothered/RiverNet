@@ -61,7 +61,7 @@ module hecras_IO
 
             IF(io_test>=0) THEN
                 counter=counter+1
-                print*, 'INCREMENTING, Counter=', counter
+                !print*, 'INCREMENTING, Counter=', counter
             END IF
             !END IF
         END DO
@@ -221,32 +221,34 @@ module hecras_IO
                         reach_data(reach_count)%xsects(xsect_count)%myname=temp_char
 
                         ! Get the Cutline information
-                        pattern_char='XS GIS Cut Line'
-                        format_char="(A15)"
-                        CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
-                        backspace(input_file_unit_no)
-                        READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
-                        !DO WHILE (trim(temp_char) /= "")
-                        print*, 'Cutline length is ', cutline_len
-                        allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
-                        loop_count=0
-                        DO i=1,ceiling(cutline_len*0.5_dp)
-                            ! Pack either 4 or 2 numbers into the cutline array
-                            IF(2*i <= cutline_len) THEN
-                                ! We have 4 numbers on this line
-                                read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
-                                loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
-                                loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
-                                
-                            ELSE
-                                ! We have 2 numbers on this line
-                                read(input_file_unit_no, "(2A16)", iostat=io_test) temp_chars(1:2)
-                                loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
-                            END IF
-                        END DO                        
+                        ! FIXME: Problem is that not all things matching 'Type RM ...'
+                        ! have cutlines / yz sections etc. Need some type extension
+
+                        !pattern_char='XS GIS Cut Line'
+                        !format_char="(A15)"
+                        !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
+                        !backspace(input_file_unit_no)
+                        !READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
+                        !!DO WHILE (trim(temp_char) /= "")
+                        !print*, 'Cutline length is ', cutline_len
+                        !allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
+                        !loop_count=0 ! Track the row number in cutline
+                        !DO i=1,ceiling(cutline_len*0.5_dp)
+                        !    ! Pack either 4 or 2 numbers into the cutline array
+                        !    IF(2*i <= cutline_len) THEN
+                        !        ! We have 4 numbers on this line
+                        !        read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
+                        !        loop_count=loop_count+1
+                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                        !        loop_count=loop_count+1
+                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
+                        !    ELSE
+                        !        ! We have 2 numbers on this line
+                        !        read(input_file_unit_no, "(2A16)", iostat=io_test) temp_chars(1:2)
+                        !        loop_count=loop_count+1
+                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                        !    END IF
+                        !END DO                        
 
 
                         !END DO
