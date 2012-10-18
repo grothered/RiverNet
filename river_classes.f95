@@ -3,9 +3,15 @@ MODULE river_classes
     USE global_defs
     IMPLICIT NONE
     
-    TYPE XSECT_DATA_TYPE
-        ! Dummy type for xsectional data
+
+    TYPE STATION_DATA_TYPE
+        ! Type for river stations (xsections, lateral structures, bridges, etc)
         CHARACTER(len=charlen):: myname
+
+    END TYPE STATION_DATA_TYPE
+    
+    TYPE, EXTENDS(STATION_DATA_TYPE):: XSECT_DATA_TYPE
+        ! Type for xsectional data
         REAL(dp), ALLOCATABLE:: cutline(:,:) ! Cutline coords
         REAL(dp), ALLOCATABLE:: yz(:,:) ! Profile coords
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 

@@ -48,10 +48,10 @@ PROGRAM read_text
 
 
             ! FIXME: Cutline reading needs fixing
-            !print*, 'Cutline size = ', size(reach_data(i)%xsects(j)%cutline(:,1))
-            !DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
-            !    print*, reach_data(i)%xsects(j)%cutline(k,1:2)
-            !END DO
+            print*, 'Cutline size = ', size(reach_data(i)%xsects(j)%cutline(:,1))
+            DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
+                print*, reach_data(i)%xsects(j)%cutline(k,1:2)
+            END DO
         END DO
     END DO
 END PROGRAM

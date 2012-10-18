@@ -81,15 +81,15 @@ module hecras_IO
         INTEGER:: io_test=0, reach_counter=0, xsect_counter=0
 
         DO WHILE(io_test>=0)
-            read(input_file_unit_no, "(A12)", iostat=io_test) temp_char
-            IF((io_test>=0).AND.(temp_char=='River Reach=') )THEN
+            read(input_file_unit_no, "(A25)", iostat=io_test) temp_char
+            IF((io_test>=0).AND.(temp_char(1:12)=='River Reach=') )THEN
                 !print*, 'NEW REACH', reach_counter
                 IF(reach_counter>0) reach_data(reach_counter)%xsect_count=xsect_counter
                 reach_counter=reach_counter+1
                 xsect_counter=0
             END IF
 
-            IF((io_test>=0).AND.(temp_char=='Type RM Leng'))THEN
+            IF((io_test>=0).AND.(temp_char=='Type RM Length L Ch R = 1'))THEN
                 xsect_counter=xsect_counter+1
             END IF
         END DO
@@ -114,15 +114,10 @@ module hecras_IO
         CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len)
         LOGICAL:: NEXT_REACH
 
-        ! Useful format statements
-        !11 FORMAT(12X, A16, 1X, A16) ! Format to read river / reach name
-        !12 FORMAT(4E16) ! Format to read 4x 16 character real numbers with no seperator
-        !14 FORMAT(A3) ! Format to read first 3 characters of line
-
         ! Read every line of the file
         reach_count=0 ! Count which reach we are on
         DO WHILE (io_test>=0) 
-
+            ! Read the enture file
             read(input_file_unit_no, "(A12)",iostat=io_test) temp_char
 
             IF(io_test<0) THEN
@@ -144,7 +139,7 @@ module hecras_IO
                 print*, 'REACH NAME:: ', temp_chars(1:2) 
                 print*, 'REACH COUNT:: ', reach_count
               
-                ! Place in 'reach_names' 
+                ! Get 'reach_names' 
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                 
@@ -199,19 +194,19 @@ module hecras_IO
                 !END DO
 
                 ! Read the xsectional information
-                allocate(reach_data(reach_count)%xsects( reach_data(reach_count)%xsect_count ) )
+                ALLOCATE(reach_data(reach_count)%xsects( reach_data(reach_count)%xsect_count ) )
                 NEXT_REACH=.FALSE.
                 xsect_count=0
                 DO WHILE (NEXT_REACH.eqv..FALSE.)
-                    READ(input_file_unit_no, "(A11)", iostat=io_test) temp_char
+                    READ(input_file_unit_no, "(A25)", iostat=io_test) temp_char
                     IF(io_test<0) THEN
                         ! End of file
                         RETURN
-                    ELSE if(temp_char=='River Reach') THEN
+                    ELSE if(temp_char(1:11)=='River Reach') THEN
                         ! New reach, go back to loop
                         backspace(input_file_unit_no)
                         NEXT_REACH=.TRUE.
-                    ELSE if(temp_char=='Type RM Len') THEN
+                    ELSE if(temp_char=='Type RM Length L Ch R = 1') THEN
 
                         ! Get the cross-sectional header information
                         backspace(input_file_unit_no)
@@ -223,33 +218,35 @@ module hecras_IO
                         ! Get the Cutline information
                         ! FIXME: Problem is that not all things matching 'Type RM ...'
                         ! have cutlines / yz sections etc. Need some type extension
+                        pattern_char='XS GIS Cut Line'
+                        format_char="(A15)"
+                        CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
+                        backspace(input_file_unit_no)
+                        READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
+                        !DO WHILE (trim(temp_char) /= "")
+                        print*, 'Cutline length is ', cutline_len
+                        allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
+                        loop_count=0 ! Track the row number in cutline
+                        DO i=1,ceiling(cutline_len*0.5_dp)
+                            ! Pack either 4 or 2 numbers into the cutline array
+                            IF(2*i <= cutline_len) THEN
+                                ! We have 4 numbers on this line
+                                read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
+                                loop_count=loop_count+1
+                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                                loop_count=loop_count+1
+                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
+                            ELSE
+                                ! We have 2 numbers on this line
+                                read(input_file_unit_no, "(2A16)", iostat=io_test) temp_chars(1:2)
+                                loop_count=loop_count+1
+                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                            END IF
+                        END DO                        
 
-                        !pattern_char='XS GIS Cut Line'
-                        !format_char="(A15)"
-                        !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
-                        !backspace(input_file_unit_no)
-                        !READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
-                        !!DO WHILE (trim(temp_char) /= "")
-                        !print*, 'Cutline length is ', cutline_len
-                        !allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
-                        !loop_count=0 ! Track the row number in cutline
-                        !DO i=1,ceiling(cutline_len*0.5_dp)
-                        !    ! Pack either 4 or 2 numbers into the cutline array
-                        !    IF(2*i <= cutline_len) THEN
-                        !        ! We have 4 numbers on this line
-                        !        read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
-                        !        loop_count=loop_count+1
-                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
-                        !        loop_count=loop_count+1
-                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
-                        !    ELSE
-                        !        ! We have 2 numbers on this line
-                        !        read(input_file_unit_no, "(2A16)", iostat=io_test) temp_chars(1:2)
-                        !        loop_count=loop_count+1
-                        !        reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
-                        !    END IF
-                        !END DO                        
+                        ! Get the yz information
 
+                        ! Get the manning's n information
 
                         !END DO
                     END IF
