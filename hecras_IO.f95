@@ -101,7 +101,7 @@ module hecras_IO
 
     END SUBROUTINE COUNT_XSECTIONS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+    
     SUBROUTINE READ_REACHES(input_file_unit_no, reach_data, num_reaches)
         ! Subroutine to read reach names/coordinates from hecras geometry file
         INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
@@ -109,7 +109,7 @@ module hecras_IO
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
-        INTEGER(dp):: io_test=0, loop_count, i, reach_count, xsect_count, cutline_len
+        INTEGER(dp):: io_test=0, loop_count, i, reach_count, xsect_count, cutline_len, yz_len
         REAL(dp):: xs(large_array_len), ys(large_array_len)
         CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len)
         LOGICAL:: NEXT_REACH
@@ -227,7 +227,7 @@ module hecras_IO
                         print*, 'Cutline length is ', cutline_len
                         allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
                         loop_count=0 ! Track the row number in cutline
-                        DO i=1,ceiling(cutline_len*0.5_dp)
+                        DO i=1,ceiling(cutline_len/2.0_dp)
                             ! Pack either 4 or 2 numbers into the cutline array
                             IF(2*i <= cutline_len) THEN
                                 ! We have 4 numbers on this line
@@ -245,9 +245,22 @@ module hecras_IO
                         END DO                        
 
                         ! Get the yz information
+                        !pattern_char='#Sta/Elev='
+                        !format_char="(A9)"
+                        !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
+                        !backspace(input_file_unit_no)
+                        !READ(input_file_unit_no, "(10X,I8)", iostat=io_test) yz_len
+                        !loop_count=0
+                        !DO i=1,ceiling(yz_len/10.0_dp)
+                        !    IF(10*i<=yz_len) THEN
+
+                        !    ELSE
+
+                        !    END IF
+
+                        !END DO
 
                         ! Get the manning's n information
-
                         !END DO
                     END IF
                 END DO
