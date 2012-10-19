@@ -88,8 +88,7 @@ module hecras_IO
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
         INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count
         INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
-        REAL(dp):: xs(large_array_len), ys(large_array_len)
-        CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len), row_chars(2)
+        CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
 
         ! Read every line of the file

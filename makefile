@@ -1,4 +1,7 @@
+clean: read_file
+	rm *.o *.mod
 
+# Main program + deps
 read_file: hecras_IO_b.o global_defs.o IO_util.o read_file.f95
 	gfortran $^ -o $@
 
@@ -15,5 +18,3 @@ global_defs.o: global_defs.f95
 	gfortran -c $^
 
 
-clean:
-	rm *.o *.mod
