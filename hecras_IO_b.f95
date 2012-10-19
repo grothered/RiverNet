@@ -162,7 +162,7 @@ module hecras_IO
 
                         ! Get the cross-sectional header information
                         backspace(input_file_unit_no)
-                        READ(input_file_unit_no, "(A100)", iostat=io_test) temp_char
+                        READ(input_file_unit_no, "(A)", iostat=io_test) temp_char
 
                         xsect_count=xsect_count+1
                         reach_data(reach_count)%xsects(xsect_count)%myname=temp_char

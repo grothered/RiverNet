@@ -15,9 +15,10 @@ PROGRAM read_text
     character(len=charlen):: temp_char(veclen), format_string
     integer(dp):: input_file_unit_no=11, temp_int(veclen), num_reaches
     real(dp):: temp_real(veclen)
+    character(len=charlen), pointer:: tmp_char_pointer
 
     ! Variables to hold data
-    type(reach_data_type), allocatable:: reach_data(:)
+    type(reach_data_type), allocatable, target:: reach_data(:)
     character(len=charlen), allocatable:: file_lines(:)
     integer(dp), allocatable:: reach_indices(:), xsect_indices(:)
     
@@ -71,7 +72,13 @@ PROGRAM read_text
         
             DO j=1,size(reach_data(i)%xsects)
                 print*, trim(reach_data(i)%xsects(j)%myname)
-
+                !tmp_char_pointer=>reach_data(i)%xsects(j)%myname
+                !print*, tmp_char_pointer
+                !write(tmp_char_pointer,*) temp_char(1:2)
+                !DO k=1,20
+                !    print*, temp_char(k)
+                !END DO
+                !stop
                 print*, 'Cutline size = ', size(reach_data(i)%xsects(j)%cutline(:,1))
                 DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
                     print*, reach_data(i)%xsects(j)%cutline(k,1:2)
