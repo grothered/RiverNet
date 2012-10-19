@@ -19,36 +19,45 @@ PROGRAM read_text
     ! Variables to hold data
     type(reach_data_type), allocatable:: reach_data(:)
     character(len=charlen), allocatable:: file_lines(:)
-    integer(dp), allocatable:: indices(:)
+    integer(dp), allocatable:: reach_indices(:), xsect_indices(:)
     
     integer:: i,j,k
     ! Open the input file
     OPEN(unit=input_file_unit_no, file=input_file)
   
-    ! Read input file 
-    format_string="(A1024)" 
-    call read_character_file(input_file_unit_no, file_lines, format_string)
+    ! Read input file (note -- some earlier functions don't need the file read
+    ! in, they just read from it as needed). But reading is probably easier
+    format_string="(A)" ! Read all lines 
+    call read_character_file(input_file_unit_no, file_lines, "(A)")
     print*, 'Length of file_lines = ', size(file_lines)
 
-    temp_char(1)='River Reach='
-    call find_line_matches(file_lines, temp_char(1), indices)
-    print*, indices
-    stop
 
     ! Count the number of reaches
-    call count_reaches(input_file_unit_no, num_reaches)
+    !call count_reaches(input_file_unit_no, num_reaches) -- this operates on the file
+    call find_line_matches(file_lines, 'River Reach=', reach_indices)
+    print*, reach_indices
+    num_reaches=size(reach_indices)
     print*, 'There are ', num_reaches, ' reaches'
+    !stop
 
     ! Set up storage for reach information
     ALLOCATE( reach_data(num_reaches) )
 
-    call count_xsections(input_file_unit_no, reach_data, num_reaches)
+    ! Count the number of xsections
+    !call count_xsections(input_file_unit_no, reach_data, num_reaches) -- this operates on the file
+    call find_line_matches(file_lines, 'Type RM Length L Ch R = 1', xsect_indices)
+    reach_data(num_reaches)%xsect_count=count(xsect_indices>reach_indices(num_reaches))
+    IF(num_reaches>1) THEN
+        DO i = num_reaches-1, 1, -1
+            reach_data(i)%xsect_count=count((xsect_indices>reach_indices(i)).AND.(xsect_indices<reach_indices(i+1)))
+        END DO
+    END IF
 
-    call read_reaches(input_file_unit_no, reach_data, num_reaches)
+    call read_reaches(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
     CLOSE(input_file_unit_no)
 
     ! Print output
-    IF(.FALSE.) THEN
+    IF(.TRUE.) THEN
         DO i=1,num_reaches
             print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
             print*, 'XSECT COUNT =', reach_data(i)%xsect_count
