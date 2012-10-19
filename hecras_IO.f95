@@ -111,9 +111,9 @@ module hecras_IO
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
-        INTEGER(dp):: io_test=0, loop_count, i, reach_count, xsect_count, cutline_len, yz_len
+        INTEGER(dp):: io_test=0, loop_count, i, j, reach_count, xsect_count, cutline_len, yz_len
         REAL(dp):: xs(large_array_len), ys(large_array_len)
-        CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len)
+        CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len), row_chars(2)
         LOGICAL:: NEXT_REACH
 
         ! Read every line of the file
@@ -165,7 +165,7 @@ module hecras_IO
                     !print*, temp_char, temp_char=='Rch Text'
 
                     IF(trim(temp_char)=='Rch Text') THEN
-                        continue
+
                     ELSE
                         backspace(input_file_unit_no)
                         ! Read coordinates as characters
@@ -190,7 +190,7 @@ module hecras_IO
                 reach_data(reach_count)%coordinates(1:2*loop_count,1) = xs(1:(2*loop_count))
                 reach_data(reach_count)%coordinates(1:2*loop_count,2) = ys(1:(2*loop_count))
                 
-                print*, 'DEBUG: Allocated reach coords'
+                !print*, 'DEBUG: Allocated reach coords'
                 !DO i=1,2*loop_count
                 !    print*, xs(i), ys(i)
                 !END DO
@@ -220,13 +220,10 @@ module hecras_IO
                         ! Get the Cutline information
                         ! FIXME: Problem is that not all things matching 'Type RM ...'
                         ! have cutlines / yz sections etc. Need some type extension
-                        pattern_char='XS GIS Cut Line'
-                        format_char="(A15)"
-                        CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
+                        CALL next_match(input_file_unit_no, 'XS GIS Cut Line', io_test, "(A15)")
                         backspace(input_file_unit_no)
                         READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
-                        !DO WHILE (trim(temp_char) /= "")
-                        print*, 'Cutline length is ', cutline_len
+                        !print*, 'Cutline length is ', cutline_len
                         allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
                         loop_count=0 ! Track the row number in cutline
                         DO i=1,ceiling(cutline_len/2.0_dp)
@@ -247,20 +244,28 @@ module hecras_IO
                         END DO                        
 
                         ! Get the yz information
-                        !pattern_char='#Sta/Elev='
-                        !format_char="(A9)"
-                        !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
-                        !backspace(input_file_unit_no)
-                        !READ(input_file_unit_no, "(10X,I8)", iostat=io_test) yz_len
-                        !loop_count=0
-                        !DO i=1,ceiling(yz_len/10.0_dp)
-                        !    IF(10*i<=yz_len) THEN
-
-                        !    ELSE
-
-                        !    END IF
-
-                        !END DO
+                        ! Step 1: Advance file to the right location
+                        CALL next_match(input_file_unit_no, '#Sta/Elev=', io_test, "(A10)")
+                        rewind(input_file_unit_no)
+                        ! Step 2: Read the number of points on the xsection, and allocate an array
+                        read(input_file_unit_no, "(11X, I8)", iostat=io_test) yz_len
+                        allocate(reach_data(reach_count)%xsects(xsect_count)%yz(yz_len,2)) 
+                        ! Step3: Pack the numbers into the array
+                        loop_count=0 ! Track the row number in the array
+                        DO i=1,ceiling(yz_len/10.0_dp) ! Loop over every line
+                            ! We have at most 10 numbers on this line
+                            read(input_file_unit_no, "(10A8)", iostat=io_test) temp_chars(1:10)
+                            ! Pack into array in pairs
+                            DO j=1,(10/2)
+                                loop_count=loop_count+1
+                                row_chars=temp_chars((2*j-1):(2*j))
+                                ! Check for 'missing data' which can occur on the last line
+                                IF(len_trim(row_chars(1))>0) THEN
+                                    ! Pack into array
+                                    reach_data(reach_count)%xsects(xsect_count)%yz(loop_count,1:2) = char_2_real(row_chars(1:2))
+                                END IF
+                            END DO
+                        END DO                        
 
                         ! Get the manning's n information
                         !END DO

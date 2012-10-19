@@ -82,13 +82,13 @@ module hecras_IO
         ! to track IO errors
         INTEGER(dp), INTENT(IN):: input_file_unit_no
         INTEGER(dp), INTENT(OUT)::  io_test
-        CHARACTER(len=charlen), INTENT(IN):: pattern, format_string
+        CHARACTER(*), INTENT(IN):: pattern, format_string
 
         CHARACTER(len=charlen) temp_char
 
         temp_char='NOT'//pattern ! A string which will not = pattern
 
-        DO WHILE ( (temp_char .NE. pattern).AND.(io_test >=0) )
+        DO WHILE ( (trim(temp_char) .NE. pattern).AND.(io_test >=0) )
             READ(input_file_unit_no, trim(format_string), iostat=io_test) temp_char
         END DO
        
@@ -213,9 +213,9 @@ module hecras_IO
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
-        INTEGER(dp):: io_test=0, loop_count, i, reach_count, xsect_count, cutline_len, yz_len
+        INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count, cutline_len, yz_len
         REAL(dp):: xs(large_array_len), ys(large_array_len)
-        CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len)
+        CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len), row_chars(2)
         LOGICAL:: NEXT_REACH
 
         ! Read every line of the file
@@ -322,9 +322,7 @@ module hecras_IO
                         ! Get the Cutline information
                         ! FIXME: Problem is that not all things matching 'Type RM ...'
                         ! have cutlines / yz sections etc. Need some type extension
-                        pattern_char='XS GIS Cut Line'
-                        format_char="(A15)"
-                        CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
+                        CALL next_match(input_file_unit_no, "XS GIS Cut Line", io_test, "(A15)")
                         backspace(input_file_unit_no)
                         READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
                         !DO WHILE (trim(temp_char) /= "")
@@ -349,6 +347,28 @@ module hecras_IO
                         END DO                        
 
                         ! Get the yz information
+                        ! Step 1: Advance file to the right location
+                        CALL next_match(input_file_unit_no, '#Sta/Elev=', io_test, "(A10)")
+                        backspace(input_file_unit_no)
+                        ! Step 2: Read the number of points on the xsection, and allocate an array
+                        read(input_file_unit_no, "(11X, I8)", iostat=io_test) yz_len
+                        allocate(reach_data(reach_count)%xsects(xsect_count)%yz(yz_len,2)) 
+                        ! Step3: Pack the numbers into the array
+                        loop_count=0 ! Track the row number in the array
+                        DO i=1,ceiling(yz_len/10.0_dp) ! Loop over every line
+                            ! We have at most 10 numbers on this line
+                            read(input_file_unit_no, "(10A8)", iostat=io_test) temp_chars(1:10)
+                            ! Pack into array in pairs
+                            DO j=1,(10/2)
+                                loop_count=loop_count+1
+                                row_chars=temp_chars((2*j-1):(2*j))
+                                ! Check for 'missing data' which can occur on the last line
+                                IF(len_trim(row_chars(1))>0) THEN
+                                    ! Pack into array
+                                    reach_data(reach_count)%xsects(xsect_count)%yz(loop_count,1:2) = char_2_real(row_chars(1:2))
+                                END IF
+                            END DO
+                        END DO                        
                         !pattern_char='#Sta/Elev='
                         !format_char="(A9)"
                         !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
