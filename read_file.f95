@@ -58,13 +58,16 @@ PROGRAM read_text
 
     ! Print output
     IF(.TRUE.) THEN
+        ! FIXME: Could use this to make a 'print_reach' routine
         DO i=1,num_reaches
             print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
-            print*, 'XSECT COUNT =', reach_data(i)%xsect_count
             !print*, 'XSECT COUNT2 =', reach_data(i)%xsect_count2
+            print*, 'Coordinates count=', size(reach_data(i)%coordinates(:,1))
             DO j=1,size(reach_data(i)%coordinates(:,1))
                 print*, reach_data(i)%coordinates(j,1:2)
             END DO
+
+            print*, 'XSECT COUNT =', reach_data(i)%xsect_count
         
             DO j=1,size(reach_data(i)%xsects)
                 print*, trim(reach_data(i)%xsects(j)%myname)
@@ -73,8 +76,15 @@ PROGRAM read_text
                 DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
                     print*, reach_data(i)%xsects(j)%cutline(k,1:2)
                 END DO
+
+                print*, 'Xsect size = ', size(reach_data(i)%xsects(j)%yz(:,1))
                 DO k=1,size(reach_data(i)%xsects(j)%yz(:,1))
                     print*, reach_data(i)%xsects(j)%yz(k,1:2) 
+                END DO
+                
+                print*, 'Xsect roughness change points:'
+                DO k=1, size(reach_data(i)%xsects(j)%roughness(:,1))
+                    print*, reach_data(i)%xsects(j)%roughness(k,1:2)
                 END DO
             END DO
         END DO

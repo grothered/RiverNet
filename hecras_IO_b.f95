@@ -213,7 +213,8 @@ module hecras_IO
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
-        INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count, cutline_len, yz_len
+        INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count
+        INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
         REAL(dp):: xs(large_array_len), ys(large_array_len)
         CHARACTER(len=charlen):: xs_c(large_array_len), ys_c(large_array_len), row_chars(2)
         LOGICAL:: NEXT_REACH
@@ -247,57 +248,32 @@ module hecras_IO
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                 
-                ! 
-                read(input_file_unit_no, *, iostat=io_test) ! Skip a line
-                IF(io_test<0) THEN
-                    PRINT*, "ERROR: UNEXPECTED END OF FILE_a"
-                    STOP  
-                END IF
-
-                ! Read the coordinates
-                loop_count=0
-                DO WHILE (trim(temp_char)/='Rch Text')
-                    !print*, '.'
-                    read(input_file_unit_no, "(A8)",iostat=io_test) temp_char ! Check for 'Rch'
-                    !print*, temp_char
-                    IF(io_test<0) THEN
-                        PRINT*, "ERROR: UNEXPECTED END OF FILE_b"
-                        STOP  
-                    END IF
-                    !print*, temp_char, temp_char=='Rch Text'
-
-                    IF(trim(temp_char)=='Rch Text') THEN
-                        continue
-                    ELSE
-                        backspace(input_file_unit_no)
-                        ! Read coordinates as characters
-                        read(input_file_unit_no, "(4A16)",iostat=io_test) xs_c(2*loop_count+1), ys_c(2*loop_count+1),&
-                                                       xs_c(2*loop_count+2), ys_c(2*loop_count+2)
-                        ! Coerce to numeric vectors
-                        !print*, xs_c(2*loop_count+1), ys_c(2*loop_count+1)
-                        !print*, xs_c(2*loop_count+2), ys_c(2*loop_count+2)
-                        !print*, xs_c(2*loop_count+2), ys_c(2*loop_count+2)
-                        loop_count=loop_count+1
-                        IF(io_test<0) THEN
-                            PRINT*, "ERROR: UNEXPECTED END OF FILE_c"
-                            STOP  
-                        END IF
-                    END IF
-                END DO
-                ! Coerce character data to reals
-                xs(1:(2*loop_count))=char_2_real(xs_c(1:(2*loop_count)))
-                ys(1:(2*loop_count))=char_2_real(ys_c(1:(2*loop_count)))
-
-                allocate(reach_data(reach_count)%coordinates(2*loop_count,2))
-                reach_data(reach_count)%coordinates(1:2*loop_count,1) = xs(1:(2*loop_count))
-                reach_data(reach_count)%coordinates(1:2*loop_count,2) = ys(1:(2*loop_count))
                 
-                !print*, 'DEBUG: Allocated reach coords'
-                !DO i=1,2*loop_count
-                !    print*, xs(i), ys(i)
-                !END DO
+                ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
+                CALL next_match(input_file_unit_no, "Reach XY=", io_test, "(A9)")
+                IF(io_test<0) THEN
+                    print*, 'ERROR: Failed to find reach coordinates for this reach'
+                    stop
+                END IF
+                backspace(input_file_unit_no)
+                READ(input_file_unit_no, "(9X, I8)", iostat=io_test) coordinates_len
+                allocate(reach_data(reach_count)%coordinates(coordinates_len,2))
+                loop_count=0
+                DO i=1,ceiling(coordinates_len/2.0_dp) ! Loop over every line
+                    ! We have at most 4 numbers on this line
+                    read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
+                    DO j=1,(4/2)
+                        loop_count=loop_count+1
+                        row_chars=temp_chars((2*j-1):(2*j))
+                        ! Check for missing data which can occur on the last line
+                        IF(len_trim(row_chars(1))>0) THEN
+                            ! Pack into array
+                            reach_data(reach_count)%coordinates(loop_count,1:2) = char_2_real(row_chars(1:2))
+                        END IF
+                    END DO
+                END DO
 
-                ! Read the xsectional information
+                ! Read the xsectional information 
                 ALLOCATE(reach_data(reach_count)%xsects( reach_data(reach_count)%xsect_count ) )
                 NEXT_REACH=.FALSE. ! Flag to check if we move onto the next reach
                 xsect_count=0 ! Keep track of which xsection we are on
@@ -319,9 +295,7 @@ module hecras_IO
                         xsect_count=xsect_count+1
                         reach_data(reach_count)%xsects(xsect_count)%myname=temp_char
 
-                        ! Get the Cutline information
-                        ! FIXME: Problem is that not all things matching 'Type RM ...'
-                        ! have cutlines / yz sections etc. Need some type extension
+                        ! Get the Cutline information -- follows a similar pattern to reading coordinates
                         CALL next_match(input_file_unit_no, "XS GIS Cut Line", io_test, "(A15)")
                         backspace(input_file_unit_no)
                         READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
@@ -346,7 +320,7 @@ module hecras_IO
                             END IF
                         END DO                        
 
-                        ! Get the yz information
+                        ! Get the yz information -- this follows a similar pattern to reading the cutline / reach coordinates
                         ! Step 1: Advance file to the right location
                         CALL next_match(input_file_unit_no, '#Sta/Elev=', io_test, "(A10)")
                         backspace(input_file_unit_no)
@@ -355,7 +329,7 @@ module hecras_IO
                         allocate(reach_data(reach_count)%xsects(xsect_count)%yz(yz_len,2)) 
                         ! Step3: Pack the numbers into the array
                         loop_count=0 ! Track the row number in the array
-                        DO i=1,ceiling(yz_len/10.0_dp) ! Loop over every line
+                        DO i=1,ceiling(yz_len/5.0_dp) ! Loop over every line
                             ! We have at most 10 numbers on this line
                             read(input_file_unit_no, "(10A8)", iostat=io_test) temp_chars(1:10)
                             ! Pack into array in pairs
@@ -369,26 +343,28 @@ module hecras_IO
                                 END IF
                             END DO
                         END DO                        
-                        !pattern_char='#Sta/Elev='
-                        !format_char="(A9)"
-                        !CALL next_match(input_file_unit_no, pattern_char, io_test, format_char)
-                        !backspace(input_file_unit_no)
-                        !READ(input_file_unit_no, "(10X,I8)", iostat=io_test) yz_len
-                        !loop_count=0
-                        !DO i=1,ceiling(yz_len/10.0_dp)
-                        !    IF(10*i<=yz_len) THEN
 
-                        !    ELSE
+                        ! Get the manning's n information -- note that we will already be at the correct line
+                        ! FIXME: Careful, this format may not be correct with > 9 manning change points
+                        read(input_file_unit_no, "(6X, I3)", iostat=io_test) mann_change_len
+                        allocate(reach_data(reach_count)%xsects(xsect_count)%roughness(mann_change_len,2))
+                        loop_count=0
+                        ! Loop over every line
+                        DO i=1,ceiling(mann_change_len/3.0_dp)
+                            read(input_file_unit_no, "(9A8)", iostat=io_test) temp_chars(1:9)
+                            DO j=1,3
+                                loop_count=loop_count+1
+                                row_chars=temp_chars( (3*j-2):(3*j-1) ) ! y value, manning change value (ignore the zero)
+                                IF(len_trim(row_chars(1))>0) THEN
+                                   reach_data(reach_count)%xsects(xsect_count)%roughness(loop_count, 1:2) &
+                                                                               = char_2_real(row_chars(1:2)) 
+                                END IF 
+                            END DO
+                        END DO 
 
-                        !    END IF
-
-                        !END DO
-
-                        ! Get the manning's n information
-                        !END DO
-                    END IF
+                    END IF ! Type RM ...
                 END DO
-                !reach_data%xsect_count2=xsect_count
+
             END IF 
 
 

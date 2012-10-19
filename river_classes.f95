@@ -15,7 +15,7 @@ MODULE river_classes
         REAL(dp), ALLOCATABLE:: cutline(:,:) ! Cutline coords
         REAL(dp), ALLOCATABLE:: yz(:,:) ! Profile coords
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 
-        REAL(dp), ALLOCATABLE:: roughness(:) ! Manning?
+        REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
     END TYPE XSECT_DATA_TYPE
 
     TYPE REACH_DATA_TYPE
