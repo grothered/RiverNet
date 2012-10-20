@@ -62,6 +62,10 @@ PROGRAM read_text
         ! FIXME: Could use this to make a 'print_reach' routine
         DO i=1,num_reaches
             print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
+
+            print*, 'Downstream Boundary:', trim(reach_data(i)%Downstream_boundary%boundary_type)
+            print*, 'Upstream Boundary:', trim(reach_data(i)%Upstream_boundary%boundary_type)
+            
             !print*, 'XSECT COUNT2 =', reach_data(i)%xsect_count2
             print*, 'Coordinates count=', size(reach_data(i)%coordinates(:,1))
             DO j=1,size(reach_data(i)%coordinates(:,1))

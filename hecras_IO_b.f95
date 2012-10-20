@@ -90,8 +90,8 @@ module hecras_IO
         INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
         CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
-        TYPE(PHYSICAL_BOUNDARY):: dp
-        TYPE(JUNCTION_BOUNDARY):: up
+        !TYPE(PHYSICAL_BOUNDARY), target:: pb(num_reaches)
+        !TYPE(JUNCTION_BOUNDARY), target:: jb(num_reaches)
 
         ! Read every line of the file
         reach_count=0 ! Count which reach we are on
@@ -122,10 +122,29 @@ module hecras_IO
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                
-                !! FIXME: TEST OF BOUNDARY CONDITION ALLOCATION
-                reach_data%Downstream_boundary=> pb 
-                reach_data%Upstream_boundary=> jb 
-                
+                !!TEST OF BOUNDARY CONDITION ALLOCATION
+                ! Fake physical boundary
+                reach_data(reach_count)%db_pb%boundary_type='Physical_boundary'
+                reach_data(reach_count)%db_pb%input_file='myfile.txt'
+                reach_data(reach_count)%db_pb%compute_method='Prefer_w'
+
+                ! Fake junction boundary
+                reach_data(reach_count)%ub_jb%boundary_type='Junction_boundary'
+                reach_data(reach_count)%ub_jb%junction_name='myjunc'
+                !allocate(jb(reach_count)%reach_names(3))
+                reach_data(reach_count)%ub_jb%reach_names(1)="asf"
+                reach_data(reach_count)%ub_jb%reach_names(2)= "asa"
+                reach_data(reach_count)%ub_jb%reach_names(3)= "asdfadsf"
+                !allocate(jb(reach_count)%reach_ends(3))
+                reach_data(reach_count)%ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
+
+                ! Use pointers
+                allocate(reach_data(reach_count)%Downstream_boundary PHYSICAL_BOUNDARY)
+                allocate(reach_data(reach_count)%Upstream_boundary JUNCTION_BOUNDARY)
+                reach_data(reach_count)%Downstream_boundary= reach_data(reach_count)%db_pb
+                reach_data(reach_count)%Upstream_boundary= reach_data(reach_count)%ub_jb 
+                !! END TEST OF BOUNDARY CONDITION 
+ 
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
                 CALL next_match(input_file_unit_no, "Reach XY=", io_test, "(A9)")
                 IF(io_test<0) THEN

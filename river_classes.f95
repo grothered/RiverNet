@@ -28,9 +28,12 @@ MODULE river_classes
         ! Store the flow variables at every cross-section that meets at this boundary
         ! Allow for junctions with 2 or more reaches joining
         CHARACTER(len=charlen):: junction_name
-        CHARACTER(len=charlen), ALLOCATABLE:: reach_names ! Names of reaches that join here
-        CHARACTER(len=charlen), ALLOCATABLE:: reach_ends ! Upstream or Downstream? for each reach
-        REAL(dp), ALLOCATABLE:: distances ! Distance from the junction, for each reach
+        !CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:) ! Names of reaches that join here
+        !CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
+        CHARACTER(len=charlen):: reach_names(3) ! Names of reaches that join here
+        CHARACTER(len=charlen):: reach_ends(3) ! Upstream or Downstream? for each reach
+        !REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
+        REAL(dp) :: distances(3) ! Distance from the junction, for each reach
     END TYPE JUNCTION_BOUNDARY
 
     TYPE, EXTENDS(REACH_BOUNDARY):: PHYSICAL_BOUNDARY
@@ -56,7 +59,13 @@ MODULE river_classes
         ! Need an upstream and a downstream boundary
         ! Now, these probably need to be specialised versions of the class reach_boundary
         ! They might be either junction boundary &/or physical boundary
-        CLASS(REACH_BOUNDARY), pointer:: Downstream_boundary, Upstream_boundary
+        
+        ! Try to make pre-existing boundaries of all possible type
+        TYPE(PHYSICAL_BOUNDARY):: db_pb, ub_pb 
+        TYPE(JUNCTION_BOUNDARY):: db_jb, ub_jb
+
+        ! Make pointers which can point to the correct boundary type
+        CLASS(REACH_BOUNDARY), allocatable:: Downstream_boundary, Upstream_boundary
 
     END TYPE REACH_DATA_TYPE
     
