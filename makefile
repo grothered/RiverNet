@@ -2,7 +2,7 @@ clean: read_file
 	rm *.o *.mod
 
 # Main program + deps
-read_file: hecras_IO_b.o global_defs.o IO_util.o read_file.f95
+read_file: hecras_IO_b.o global_defs.o IO_util.o river_classes.o read_file.f95
 	gfortran $^ -o $@
 
 hecras_IO_b.o: global_defs.o IO_util.o river_classes.o hecras_IO_b.f95

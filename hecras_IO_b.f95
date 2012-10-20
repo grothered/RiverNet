@@ -90,6 +90,8 @@ module hecras_IO
         INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
         CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
+        TYPE(PHYSICAL_BOUNDARY):: dp
+        TYPE(JUNCTION_BOUNDARY):: up
 
         ! Read every line of the file
         reach_count=0 ! Count which reach we are on
@@ -119,7 +121,10 @@ module hecras_IO
                 ! Get 'reach_names' 
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
-                
+               
+                !! FIXME: TEST OF BOUNDARY CONDITION ALLOCATION
+                reach_data%Downstream_boundary=> pb 
+                reach_data%Upstream_boundary=> jb 
                 
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
                 CALL next_match(input_file_unit_no, "Reach XY=", io_test, "(A9)")
@@ -234,13 +239,16 @@ module hecras_IO
                             END DO
                         END DO 
 
+                        !FIXME: Get the downstream distances
+
+
                     END IF ! Type RM ...
-                END DO
+                END DO 
 
-            END IF 
+            END IF ! temp_char=='River Reach'
 
 
-        END DO 
+        END DO ! while io_test/=0
 
         rewind(input_file_unit_no)
     END SUBROUTINE READ_REACHES
