@@ -1,8 +1,7 @@
-! Test code to try to read formatted text
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
-! Test program to extract info from hecras geometry file
+! Test program to extract info from hecras geometry file into an Object
+! Oriented data structure
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

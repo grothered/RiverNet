@@ -4,13 +4,13 @@ The reaches (names + coordinates + cross-sections (cutlines + profile + manning)
 
 The main program is:
 
-0) read_file.f95
+0) read_file.f03
 
 Other code is:
-1) global_defs.f95 -- global constants (e.g real precision, character length, etc)
-2) river_classes.f95 -- classes for river / xsectional data
-3) IO_util.f95 -- code to read files / manipulate strings
-3) hecras_IO_b.f95 -- code to parse the hecras input data
+1) global_defs.f03 -- global constants (e.g real precision, character length, etc)
+2) river_classes.f03 -- classes for river / xsectional data
+3) IO_util.f03 -- code to read files / manipulate strings
+3) hecras_IO_b.f03 -- code to parse the hecras input data
 
 4) makefile
 
