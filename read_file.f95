@@ -63,8 +63,19 @@ PROGRAM read_text
         DO i=1,num_reaches
             print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
 
-            print*, 'Downstream Boundary:', trim(reach_data(i)%Downstream_boundary%boundary_type)
-            print*, 'Upstream Boundary:', trim(reach_data(i)%Upstream_boundary%boundary_type)
+            ! Here, we print the polymorphic boundary variables
+            SELECT TYPE(bound=>reach_data(i)%Downstream_boundary)
+            TYPE IS (PHYSICAL_BOUNDARY)
+            print*, 'Downstream Boundary: ', trim(bound%boundary_type),' ', &
+                                        trim(bound%input_file)
+            END SELECT
+            SELECT TYPE(bound=>reach_data(i)%Upstream_boundary)
+            TYPE IS (JUNCTION_BOUNDARY)
+            print*, 'Downstream Boundary: ', trim(bound%boundary_type), ' ',&
+                                        trim(bound%junction_name)
+            END SELECT
+            !print*, 'Upstream Boundary:', trim(reach_data(i)%Upstream_boundary%boundary_type), &
+            !                                trim(reach_data(i)%Downstream_boundary%junction_name)
             
             !print*, 'XSECT COUNT2 =', reach_data(i)%xsect_count2
             print*, 'Coordinates count=', size(reach_data(i)%coordinates(:,1))

@@ -90,8 +90,8 @@ module hecras_IO
         INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
         CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
-        !TYPE(PHYSICAL_BOUNDARY), target:: pb(num_reaches)
-        !TYPE(JUNCTION_BOUNDARY), target:: jb(num_reaches)
+        TYPE(PHYSICAL_BOUNDARY):: db_pb
+        TYPE(JUNCTION_BOUNDARY):: ub_jb
 
         ! Read every line of the file
         reach_count=0 ! Count which reach we are on
@@ -122,27 +122,51 @@ module hecras_IO
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                
-                !!TEST OF BOUNDARY CONDITION ALLOCATION
+                !!!TEST OF BOUNDARY CONDITION ALLOCATION
+                !! Fake physical boundary
+                !reach_data(reach_count)%db_pb%boundary_type='Physical_boundary'
+                !reach_data(reach_count)%db_pb%input_file='myfile.txt'
+                !reach_data(reach_count)%db_pb%compute_method='Prefer_w'
+
+                !! Fake junction boundary
+                !reach_data(reach_count)%ub_jb%boundary_type='Junction_boundary'
+                !reach_data(reach_count)%ub_jb%junction_name='myjunc'
+                !!allocate(jb(reach_count)%reach_names(3))
+                !reach_data(reach_count)%ub_jb%reach_names(1)="asf"
+                !reach_data(reach_count)%ub_jb%reach_names(2)= "asa"
+                !reach_data(reach_count)%ub_jb%reach_names(3)= "asdfadsf"
+                !!allocate(jb(reach_count)%reach_ends(3))
+                !reach_data(reach_count)%ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
+                ! Set the type of the downstream / upstream boundaries
+                !ALLOCATE(PHYSICAL_BOUNDARY::reach_data(reach_count)%Downstream_boundary)
+                !ALLOCATE(JUNCTION_BOUNDARY::reach_data(reach_count)%Upstream_boundary)
+                !reach_data(reach_count)%Downstream_boundary= reach_data(reach_count)%db_pb
+                !reach_data(reach_count)%Upstream_boundary= reach_data(reach_count)%ub_jb 
+                !ALLOCATE(reach_data(reach_count)%Downstream_boundary, source=reach_data(reach_count)%db_pb)
+                !ALLOCATE(reach_data(reach_count)%Upstream_boundary, source=reach_data(reach_count)%ub_jb)
+                !call allocate_generic_boundary(reach_data(reach_count)%Downstream_boundary, reach_data(reach_count)%db_pb)
+                !call allocate_generic_boundary(reach_data(reach_count)%Upstream_boundary, reach_data(reach_count)%ub_jb)
+
                 ! Fake physical boundary
-                reach_data(reach_count)%db_pb%boundary_type='Physical_boundary'
-                reach_data(reach_count)%db_pb%input_file='myfile.txt'
-                reach_data(reach_count)%db_pb%compute_method='Prefer_w'
+                db_pb%boundary_type='Physical_boundary'
+                db_pb%input_file='myfile.txt'
+                db_pb%compute_method='Prefer_w'
 
                 ! Fake junction boundary
-                reach_data(reach_count)%ub_jb%boundary_type='Junction_boundary'
-                reach_data(reach_count)%ub_jb%junction_name='myjunc'
+                ub_jb%boundary_type='Junction_boundary'
+                ub_jb%junction_name='myjunc'
                 !allocate(jb(reach_count)%reach_names(3))
-                reach_data(reach_count)%ub_jb%reach_names(1)="asf"
-                reach_data(reach_count)%ub_jb%reach_names(2)= "asa"
-                reach_data(reach_count)%ub_jb%reach_names(3)= "asdfadsf"
+                ub_jb%reach_names(1)="asf"
+                ub_jb%reach_names(2)= "asa"
+                ub_jb%reach_names(3)= "asdfadsf"
                 !allocate(jb(reach_count)%reach_ends(3))
-                reach_data(reach_count)%ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
-
-                ! Use pointers
-                allocate(reach_data(reach_count)%Downstream_boundary PHYSICAL_BOUNDARY)
-                allocate(reach_data(reach_count)%Upstream_boundary JUNCTION_BOUNDARY)
-                reach_data(reach_count)%Downstream_boundary= reach_data(reach_count)%db_pb
-                reach_data(reach_count)%Upstream_boundary= reach_data(reach_count)%ub_jb 
+                ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
+               
+                allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
+                allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
+                !call allocate_generic_boundary(reach_data(reach_count)%Downstream_boundary, db_pb)
+                !call allocate_generic_boundary(reach_data(reach_count)%Upstream_boundary, ub_jb)
+               
                 !! END TEST OF BOUNDARY CONDITION 
  
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
