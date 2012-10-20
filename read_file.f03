@@ -61,45 +61,10 @@ PROGRAM read_text
     IF(.TRUE.) THEN
         ! FIXME: Could use this to make a 'print_reach' routine
         DO i=1,num_reaches
-            ! Print name
-            print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
-
-            ! Print boundary inforation -- note, polymorphic boundary variables
-            print*, 'Downstream_boundary Info:'
-            SELECT TYPE(bound=>reach_data(i)%Downstream_boundary)
-            TYPE IS (PHYSICAL_BOUNDARY)
-                print*, trim(bound%boundary_type),' ', &
-                                            trim(bound%input_file)
-            TYPE IS (JUNCTION_BOUNDARY)
-                print*, trim(bound%boundary_type), ' ',&
-                                            trim(bound%junction_name)
-            END SELECT
-
-            ! Print coordinates
-            print*, 'Coordinates count=', size(reach_data(i)%coordinates(:,1))
-            DO j=1,size(reach_data(i)%coordinates(:,1))
-                print*, reach_data(i)%coordinates(j,1:2)
-            END DO
-
-            print*, 'XSECT COUNT =', reach_data(i)%xsect_count
+            call reach_data(i)%print()
         
             DO j=1,size(reach_data(i)%xsects)
-                print*, trim(reach_data(i)%xsects(j)%myname)
-
-                print*, 'Cutline size = ', size(reach_data(i)%xsects(j)%cutline(:,1))
-                DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
-                    print*, reach_data(i)%xsects(j)%cutline(k,1:2)
-                END DO
-
-                print*, 'Xsect size = ', size(reach_data(i)%xsects(j)%yz(:,1))
-                DO k=1,size(reach_data(i)%xsects(j)%yz(:,1))
-                    print*, reach_data(i)%xsects(j)%yz(k,1:2) 
-                END DO
-                
-                print*, 'Xsect roughness change points:'
-                DO k=1, size(reach_data(i)%xsects(j)%roughness(:,1))
-                    print*, reach_data(i)%xsects(j)%roughness(k,1:2)
-                END DO
+                call reach_data(i)%xsects(j)%print()
             END DO
         END DO
     END IF

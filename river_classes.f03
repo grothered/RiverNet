@@ -17,11 +17,16 @@ MODULE river_classes
         REAL(dp), ALLOCATABLE:: yz(:,:) ! Profile coords
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 
         REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
+
+        contains
+        PROCEDURE:: print => print_xsect
     END TYPE XSECT_DATA_TYPE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     TYPE REACH_BOUNDARY
         CHARACTER(len=charlen):: boundary_type ! junction or physical -- do I even need this?
+        contains
+        PROCEDURE:: print => print_boundary
     END TYPE REACH_BOUNDARY
 
     TYPE, EXTENDS(REACH_BOUNDARY):: JUNCTION_BOUNDARY
@@ -59,15 +64,74 @@ MODULE river_classes
         ! Variables which will be dynamically allocated the boundary information
         CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
 
+        contains
+        PROCEDURE:: print => print_reach
+
     END TYPE REACH_DATA_TYPE
  
-    !contains
+    CONTAINS
 
-    !SUBROUTINE print_boundary(generic_boundary)
-    !    CLASS(REACH_BOUNDARY):: generic_boundary
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE print_boundary(generic_boundary)
+        CLASS(REACH_BOUNDARY):: generic_boundary
 
-    !    SELECT TYPE(generic_boundary)
+        SELECT TYPE(generic_boundary)
+            TYPE IS (PHYSICAL_BOUNDARY)
+                print*, trim(generic_boundary%boundary_type),' ', &
+                                            trim(generic_boundary%input_file)
+            TYPE IS (JUNCTION_BOUNDARY)
+                print*, trim(generic_boundary%boundary_type), ' ',&
+                                            trim(generic_boundary%junction_name)
+        END SELECT
 
-    !END SUBROUTINE print_boundary 
+    END SUBROUTINE print_boundary 
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE print_reach(reach_data)
+        CLASS(REACH_DATA_TYPE), INTENT(IN):: reach_data
+
+        INTEGER:: j
+        ! Print name
+        print*, trim(reach_data%names(1)), ' ',trim(reach_data%names(2))
+
+        ! Print boundary inforation -- note, polymorphic boundary variables
+        print*, 'Downstream_boundary Info:'
+        call reach_data%Downstream_boundary%print()
+        print*, 'Upstream_boundary Info:'
+        call reach_data%Upstream_boundary%print()
+
+        ! Print coordinates
+        print*, 'Coordinates count=', size(reach_data%coordinates(:,1))
+        DO j=1,size(reach_data%coordinates(:,1))
+            print*, reach_data%coordinates(j,1:2)
+        END DO
+
+        print*, 'XSECT COUNT =', reach_data%xsect_count
+
+    END SUBROUTINE print_reach
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    SUBROUTINE print_xsect(xsects)
+        CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsects
+        INTEGER:: k
+
+        print*, trim(xsects%myname)
+
+        print*, 'Cutline size = ', size(xsects%cutline(:,1))
+        DO k=1,size(xsects%cutline(:,1))
+            print*, xsects%cutline(k,1:2)
+        END DO
+
+        print*, 'Xsect size = ', size(xsects%yz(:,1))
+        DO k=1,size(xsects%yz(:,1))
+            print*, xsects%yz(k,1:2) 
+        END DO
+        
+        print*, 'Xsect roughness change points:'
+        DO k=1, size(xsects%roughness(:,1))
+            print*, xsects%roughness(k,1:2)
+        END DO
+
+    END SUBROUTINE print_xsect
 
 END MODULE river_classes
