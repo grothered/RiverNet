@@ -1,6 +1,6 @@
-This code parses part of a hecras geometry file into some fortran classes for holding river data.
+This code parses part of a hecras geometry file into some fortran classes for holding river data. It's a bit of an excuse for me to learn some fortran file IO + OOP + think about how to set up a river network model, which I may one day populate with a solver
 
-The reaches (names + coordinates + cross-sections (cutlines + profile + manning) ) are all read in
+The reaches (names + coordinates + cross-sections (cutlines + profile + manning) ) are all read in.
 
 The main program is:
 
@@ -14,4 +14,4 @@ Other code is:
 
 4) makefile
 
-5) hectest.g05 -- this is the hecras geometry file that I am using to develop the code. Reasonably complex
+5) hectest.g05 -- this is the (test) hecras geometry file that I am using to develop the code. Reasonably complex
