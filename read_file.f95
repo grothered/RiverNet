@@ -61,23 +61,21 @@ PROGRAM read_text
     IF(.TRUE.) THEN
         ! FIXME: Could use this to make a 'print_reach' routine
         DO i=1,num_reaches
+            ! Print name
             print*, trim(reach_data(i)%names(1)), ' ',trim(reach_data(i)%names(2))
 
-            ! Here, we print the polymorphic boundary variables
+            ! Print boundary inforation -- note, polymorphic boundary variables
+            print*, 'Downstream_boundary Info:'
             SELECT TYPE(bound=>reach_data(i)%Downstream_boundary)
             TYPE IS (PHYSICAL_BOUNDARY)
-            print*, 'Downstream Boundary: ', trim(bound%boundary_type),' ', &
-                                        trim(bound%input_file)
-            END SELECT
-            SELECT TYPE(bound=>reach_data(i)%Upstream_boundary)
+                print*, trim(bound%boundary_type),' ', &
+                                            trim(bound%input_file)
             TYPE IS (JUNCTION_BOUNDARY)
-            print*, 'Downstream Boundary: ', trim(bound%boundary_type), ' ',&
-                                        trim(bound%junction_name)
+                print*, trim(bound%boundary_type), ' ',&
+                                            trim(bound%junction_name)
             END SELECT
-            !print*, 'Upstream Boundary:', trim(reach_data(i)%Upstream_boundary%boundary_type), &
-            !                                trim(reach_data(i)%Downstream_boundary%junction_name)
-            
-            !print*, 'XSECT COUNT2 =', reach_data(i)%xsect_count2
+
+            ! Print coordinates
             print*, 'Coordinates count=', size(reach_data(i)%coordinates(:,1))
             DO j=1,size(reach_data(i)%coordinates(:,1))
                 print*, reach_data(i)%coordinates(j,1:2)
@@ -87,13 +85,7 @@ PROGRAM read_text
         
             DO j=1,size(reach_data(i)%xsects)
                 print*, trim(reach_data(i)%xsects(j)%myname)
-                !tmp_char_pointer=>reach_data(i)%xsects(j)%myname
-                !print*, tmp_char_pointer
-                !write(tmp_char_pointer,*) temp_char(1:2)
-                !DO k=1,20
-                !    print*, temp_char(k)
-                !END DO
-                !stop
+
                 print*, 'Cutline size = ', size(reach_data(i)%xsects(j)%cutline(:,1))
                 DO k=1,size(reach_data(i)%xsects(j)%cutline(:,1))
                     print*, reach_data(i)%xsects(j)%cutline(k,1:2)

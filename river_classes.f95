@@ -56,46 +56,18 @@ MODULE river_classes
         INTEGER(dp):: xsect_count ! Number of xsections
         TYPE(XSECT_DATA_TYPE), ALLOCATABLE:: xsects(:) ! Hold array of xsection information
 
-        ! Need an upstream and a downstream boundary
-        ! Now, these probably need to be specialised versions of the class reach_boundary
-        ! They might be either junction boundary &/or physical boundary
-        
-        ! Try to make pre-existing boundaries of all possible type
-        !TYPE(PHYSICAL_BOUNDARY):: db_pb, ub_pb 
-        !TYPE(JUNCTION_BOUNDARY):: db_jb, ub_jb
-
         ! Variables which will be dynamically allocated the boundary information
         CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
 
     END TYPE REACH_DATA_TYPE
-  
-    contains 
+ 
+    !contains
 
-    SUBROUTINE allocate_generic_boundary(generic_boundary, specific_boundary)
-        CLASS(REACH_BOUNDARY), INTENT(IN):: specific_boundary
-        CLASS(REACH_BOUNDARY), ALLOCATABLE, INTENT(OUT):: generic_boundary
+    !SUBROUTINE print_boundary(generic_boundary)
+    !    CLASS(REACH_BOUNDARY):: generic_boundary
 
-        !SELECT TYPE(specific_boundary)
-        !TYPE IS(PHYSICAL_BOUNDARY) 
-            allocate(generic_boundary,source=specific_boundary)
-        !TYPE IS(JUNCTION_BOUNDARY)
-        !    allocate(generic_boundary,source=specific_boundary)
-        !END SELECT 
-        !SELECT TYPE(specific_boundary)
-        !TYPE IS (PHYSICAL_BOUNDARY)
-        !    allocate(PHYSICAL_BOUNDARY::generic_boundary)
-        !    SELECT TYPE(generic_boundary)
-        !    TYPE IS(PHYSICAL_BOUNDARY) 
-        !        generic_boundary=specific_boundary
-        !    END SELECT
-        !TYPE IS (JUNCTION_BOUNDARY)
-        !    allocate(JUNCTION_BOUNDARY::generic_boundary)
-        !    SELECT TYPE(generic_boundary)
-        !    TYPE IS(JUNCTION_BOUNDARY) 
-        !        generic_boundary=specific_boundary
-        !    END SELECT
-        !END SELECT
+    !    SELECT TYPE(generic_boundary)
 
-    END SUBROUTINE allocate_generic_boundary 
+    !END SUBROUTINE print_boundary 
 
 END MODULE river_classes
