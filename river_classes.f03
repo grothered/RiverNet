@@ -59,14 +59,24 @@ MODULE river_classes
         
         REAL(dp), ALLOCATABLE:: coordinates(:,:) ! Centreline coordinates
         
+        ! Variables which will be dynamically allocated the boundary information
+        CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
+        
         INTEGER(dp):: xsect_count ! Number of xsections
         TYPE(XSECT_DATA_TYPE), ALLOCATABLE:: xsects(:) ! Hold array of xsection information
 
-        ! Variables which will be dynamically allocated the boundary information
-        CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
+        !
+        ! 1D flow variables
+        !
+        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), Area(:) 
+
+        ! Array of the downstream distances (DX) -- e.g. for the left & right banks + channel
+        REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
+
 
         contains
         PROCEDURE:: print => print_reach
+        PROCEDURE:: get_downstream_dists_from_xsections => get_downstream_dists_from_xsections
 
     END TYPE REACH_DATA_TYPE
  
@@ -88,26 +98,31 @@ MODULE river_classes
     END SUBROUTINE print_boundary 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE print_reach(reach_data)
-        CLASS(REACH_DATA_TYPE), INTENT(IN):: reach_data
+    SUBROUTINE print_reach(reach)
+        CLASS(REACH_DATA_TYPE), INTENT(IN):: reach
 
         INTEGER:: j
         ! Print name
-        print*, trim(reach_data%names(1)), ' ',trim(reach_data%names(2))
+        print*, trim(reach%names(1)), ' ',trim(reach%names(2))
 
         ! Print boundary inforation -- note, polymorphic boundary variables
         print*, 'Downstream_boundary Info:'
-        call reach_data%Downstream_boundary%print()
+        call reach%Downstream_boundary%print()
         print*, 'Upstream_boundary Info:'
-        call reach_data%Upstream_boundary%print()
+        call reach%Upstream_boundary%print()
 
-        ! Print coordinates
-        print*, 'Coordinates count=', size(reach_data%coordinates(:,1))
-        DO j=1,size(reach_data%coordinates(:,1))
-            print*, reach_data%coordinates(j,1:2)
+        print*, 'Downstream distances:'
+        DO j=1,size(reach%downstream_dists(:,1))
+            print*, '   ', reach%downstream_dists(j,:)
         END DO
 
-        print*, 'XSECT COUNT =', reach_data%xsect_count
+        ! Print coordinates
+        print*, 'Coordinates count=', size(reach%coordinates(:,1))
+        DO j=1,size(reach%coordinates(:,1))
+            print*, reach%coordinates(j,1:2)
+        END DO
+
+        print*, 'XSECT COUNT =', reach%xsect_count
 
     END SUBROUTINE print_reach
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -135,5 +150,22 @@ MODULE river_classes
         END DO
 
     END SUBROUTINE print_xsect
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE get_downstream_dists_from_xsections(reach)
+        ! Copy the 'downstream_dists' from each xsection into a single array held at the reach level
+        ! Why?? Cleaner access
+        CLASS(REACH_DATA_TYPE), INTENT(INOUT):: reach
+
+        INTEGER(dp)::i
+
+        ! Make array of dim (number of xsections, number of downstream distances per xsection)
+        ! There can be more than 1 downstream distance per xsection (e.g. hecras uses the left bank, channel and right bank)
+        ALLOCATE(reach%downstream_dists( reach%xsect_count, size(reach%xsects(1)%downstream_dists) ) )
+        DO i=1,reach%xsect_count
+            reach%downstream_dists(i,:) = reach%xsects(i)%downstream_dists
+        END DO
+
+    END SUBROUTINE get_downstream_dists_from_xsections
 
 END MODULE river_classes

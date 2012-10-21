@@ -56,6 +56,10 @@ PROGRAM read_text
     call read_reaches(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
     CLOSE(input_file_unit_no)
 
+    DO i=1,num_reaches
+        call reach_data(i)%get_downstream_dists_from_xsections()
+    END DO
+
     ! Print output
     IF(.TRUE.) THEN
         ! FIXME: Could use this to make a 'print_reach' routine
