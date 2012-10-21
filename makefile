@@ -5,17 +5,20 @@ clean: read_file
 	rm *.o *.mod
 
 # Main program + deps
-read_file: hecras_IO_b.o global_defs.o IO_util.o river_classes.o read_file.f03
+read_file: hecras_IO_b.o global_defs.o IO_util.o xsect_classes.o river_classes.o read_file.f03
 	$(COMPILER) $^ -o $@
 
-hecras_IO_b.o: global_defs.o IO_util.o river_classes.o hecras_IO_b.f03
+hecras_IO_b.o: global_defs.o IO_util.o xsect_classes.o river_classes.o hecras_IO_b.f03
 	$(COMPILER) -c hecras_IO_b.f03 
 
 IO_util.o: global_defs.o IO_util.f03
 	$(COMPILER) -c IO_util.f03
 
-river_classes.o: global_defs.o river_classes.f03
+river_classes.o: global_defs.o xsect_classes.o river_classes.f03
 	$(COMPILER) -c river_classes.f03 
+
+xsect_classes.o: global_defs.o xsect_classes.f03
+	$(COMPILER) -c xsect_classes.f03 
 
 global_defs.o: global_defs.f03
 	$(COMPILER) -c $^
