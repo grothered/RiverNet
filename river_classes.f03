@@ -2,7 +2,24 @@ MODULE river_classes
 ! Classes for river type things
     USE global_defs
     IMPLICIT NONE
-    
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    TYPE MONOTONIC_RELATION
+        ! Holds two variables with a monotonic relation (e.g. Stage vs Area)
+        ! This can be used to make a function which computes one variable given the other
+        ! (with interpolation as appropriate). 
+        ! e.g. Compute 'Area' given 'Stage', or vice-versa
+        !
+        ! Also hold the 'last_lower_search_index', which is the (lower) index near where
+        ! we last evaluated the relation. The idea is that we will often
+        ! evaluate the function near to where we last evaluated it. Storing the 
+        ! index can make the look-up fast.
+        REAL(dp), ALLOCATABLE:: Stage_Area(:,:)
+        INTEGER(dp):: last_search_index
+        !contains
+        !PROCEDURE:: init=> init_stage_area_relation ! Initialise (and/or update) the stage_area relation
+        !PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
+    END TYPE    
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     TYPE STATION_DATA_TYPE
@@ -18,6 +35,9 @@ MODULE river_classes
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 
         REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
 
+        ! 
+        TYPE(MONOTONIC_RELATION), ALLOCATABLE:: stage_area_curve
+        
         contains
         PROCEDURE:: print => print_xsect
     END TYPE XSECT_DATA_TYPE
@@ -127,26 +147,26 @@ MODULE river_classes
     END SUBROUTINE print_reach
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE print_xsect(xsects)
-        CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsects
+    SUBROUTINE print_xsect(xsect)
+        CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsect
         INTEGER:: k
 
-        print*, trim(xsects%myname)
-        print*, 'Downstream distances are ', xsects%downstream_dists
+        print*, trim(xsect%myname)
+        print*, 'Downstream distances are ', xsect%downstream_dists
 
-        print*, 'Cutline size = ', size(xsects%cutline(:,1))
-        DO k=1,size(xsects%cutline(:,1))
-            print*, xsects%cutline(k,1:2)
+        print*, 'Cutline size = ', size(xsect%cutline(:,1))
+        DO k=1,size(xsect%cutline(:,1))
+            print*, xsect%cutline(k,1:2)
         END DO
 
-        print*, 'Xsect size = ', size(xsects%yz(:,1))
-        DO k=1,size(xsects%yz(:,1))
-            print*, xsects%yz(k,1:2) 
+        print*, 'Xsect size = ', size(xsect%yz(:,1))
+        DO k=1,size(xsect%yz(:,1))
+            print*, xsect%yz(k,1:2) 
         END DO
         
         print*, 'Xsect roughness change points:'
-        DO k=1, size(xsects%roughness(:,1))
-            print*, xsects%roughness(k,1:2)
+        DO k=1, size(xsect%roughness(:,1))
+            print*, xsect%roughness(k,1:2)
         END DO
 
     END SUBROUTINE print_xsect
@@ -168,4 +188,8 @@ MODULE river_classes
 
     END SUBROUTINE get_downstream_dists_from_xsections
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !SUBROUTINE init_stage_area_relation(xsect)
+    !   
+    !END SUBROUTINE init_stage_area_relation 
 END MODULE river_classes
