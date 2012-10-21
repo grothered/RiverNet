@@ -80,7 +80,7 @@ module hecras_IO
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     SUBROUTINE READ_REACHES(input_file_unit_no, reach_data, num_reaches)
-        ! Subroutine to read reach names/coordinates from hecras geometry file
+        ! Subroutine to read reach names/coordinates/xsections etc from hecras geometry file
         INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
         TYPE(reach_data_type), INTENT(IN OUT), target:: reach_data(num_reaches)
 
