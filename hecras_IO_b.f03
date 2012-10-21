@@ -82,7 +82,7 @@ module hecras_IO
     SUBROUTINE READ_REACHES(input_file_unit_no, reach_data, num_reaches)
         ! Subroutine to read reach names/coordinates from hecras geometry file
         INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
-        TYPE(reach_data_type), INTENT(IN OUT):: reach_data(num_reaches)
+        TYPE(reach_data_type), INTENT(IN OUT), target:: reach_data(num_reaches)
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
@@ -92,7 +92,9 @@ module hecras_IO
         LOGICAL:: NEXT_REACH
         ! Boundary conditions
         TYPE(PHYSICAL_BOUNDARY):: db_pb
-        TYPE(JUNCTION_BOUNDARY):: ub_jb
+        TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: ub_jb
+        ! Shorthand for xsectional data
+        TYPE(XSECT_DATA_TYPE), POINTER:: xs
 
         ! Read every line of the file
         reach_count=0 ! Count which reach we are on
@@ -123,23 +125,27 @@ module hecras_IO
                 ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                
-                !!!TEST OF BOUNDARY CONDITION ALLOCATION
+                !!!HYPOTHETICAL BOUNDARY CONDITION ALLOCATION
+                ! FIXME: THIS BELONGS ELSEWHERE
                 ! Fake physical boundary
                 db_pb%boundary_type='Physical_boundary'
                 db_pb%input_file='myfile.txt'
                 db_pb%compute_method='Prefer_w'
 
                 ! Fake junction boundary
+                ALLOCATE(ub_jb)
                 ub_jb%boundary_type='Junction_boundary'
                 ub_jb%junction_name='myjunc'
                 !allocate(jb(reach_count)%reach_names(3))
+                ALLOCATE(ub_jb%reach_names(3))
+                ALLOCATE(ub_jb%reach_ends(3))
                 ub_jb%reach_names(1)="asf"
                 ub_jb%reach_names(2)= "asa"
                 ub_jb%reach_names(3)= "asdfadsf"
                 !allocate(jb(reach_count)%reach_ends(3))
                 ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
              
-                ! **Randomly** assign boundary types 
+                ! **Randomly** assign boundary types, to test that we can use polymorphism
                 IF(mod(reach_count,2_dp)==0) THEN 
                     allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
                     allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
@@ -147,6 +153,7 @@ module hecras_IO
                     allocate(reach_data(reach_count)%Downstream_boundary, source=ub_jb) 
                     allocate(reach_data(reach_count)%Upstream_boundary, source=db_pb) 
                 END IF 
+                DEALLOCATE(ub_jb)
                 !! END TEST OF BOUNDARY CONDITION 
  
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
@@ -173,10 +180,11 @@ module hecras_IO
                     END DO
                 END DO
 
-                ! Read the xsectional information 
+                ! Read the xsectional information on this reach
                 ALLOCATE(reach_data(reach_count)%xsects( reach_data(reach_count)%xsect_count ) )
                 NEXT_REACH=.FALSE. ! Flag to check if we move onto the next reach
                 xsect_count=0 ! Keep track of which xsection we are on
+
                 DO WHILE (NEXT_REACH.eqv..FALSE.)
                     READ(input_file_unit_no, "(A25)", iostat=io_test) temp_char
                     IF(io_test<0) THEN
@@ -188,12 +196,23 @@ module hecras_IO
                         NEXT_REACH=.TRUE.
                     ELSE if(temp_char=='Type RM Length L Ch R = 1') THEN
 
+                        xsect_count=xsect_count+1 ! Index of cross-section
+                        
                         ! Get the cross-sectional header information
                         backspace(input_file_unit_no)
                         READ(input_file_unit_no, "(A)", iostat=io_test) temp_char
 
-                        xsect_count=xsect_count+1
-                        reach_data(reach_count)%xsects(xsect_count)%myname=temp_char
+                        
+                        ! Make pointer to the xsection for shorthand notation
+                        xs=> reach_data(reach_count)%xsects(xsect_count)
+                        xs%myname=temp_char
+                        !reach_data(reach_count)%xsects(xsect_count)%myname=temp_char
+
+                        ! Get the downstream distances, by re-reading the header information
+                        ALLOCATE(xs%downstream_dists(3))
+                        READ(temp_char(37:charlen),*) xs%downstream_dists(1), &
+                                                      xs%downstream_dists(2), &
+                                                      xs%downstream_dists(3)
 
                         ! Get the Cutline information -- follows a similar pattern to reading coordinates
                         CALL next_match(input_file_unit_no, "XS GIS Cut Line", io_test, "(A15)")
@@ -201,7 +220,7 @@ module hecras_IO
                         READ(input_file_unit_no, "(A16,I8)", iostat=io_test) temp_char, cutline_len
                         !DO WHILE (trim(temp_char) /= "")
                         !print*, 'Cutline length is ', cutline_len
-                        allocate(reach_data(reach_count)%xsects(xsect_count)%cutline(cutline_len,2)) 
+                        allocate(xs%cutline(cutline_len,2)) 
                         loop_count=0 ! Track the row number in cutline
                         DO i=1,ceiling(cutline_len/2.0_dp)
                             ! Pack either 4 or 2 numbers into the cutline array
@@ -209,14 +228,14 @@ module hecras_IO
                                 ! We have 4 numbers on this line
                                 read(input_file_unit_no, "(4A16)", iostat=io_test) temp_chars(1:4)
                                 loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                                xs%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
                                 loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
+                                xs%cutline(loop_count,1:2) = char_2_real(temp_chars(3:4) )
                             ELSE
                                 ! We have 2 numbers on this line
                                 read(input_file_unit_no, "(2A16)", iostat=io_test) temp_chars(1:2)
                                 loop_count=loop_count+1
-                                reach_data(reach_count)%xsects(xsect_count)%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
+                                xs%cutline(loop_count,1:2) = char_2_real(temp_chars(1:2) )
                             END IF
                         END DO                        
 
@@ -226,7 +245,7 @@ module hecras_IO
                         backspace(input_file_unit_no)
                         ! Step 2: Read the number of points on the xsection, and allocate an array
                         read(input_file_unit_no, "(11X, I8)", iostat=io_test) yz_len
-                        allocate(reach_data(reach_count)%xsects(xsect_count)%yz(yz_len,2)) 
+                        allocate(xs%yz(yz_len,2)) 
                         ! Step3: Pack the numbers into the array
                         loop_count=0 ! Track the row number in the array
                         DO i=1,ceiling(yz_len/5.0_dp) ! Loop over every line
@@ -239,15 +258,15 @@ module hecras_IO
                                 ! Check for 'missing data' which can occur on the last line
                                 IF(len_trim(row_chars(1))>0) THEN
                                     ! Pack into array
-                                    reach_data(reach_count)%xsects(xsect_count)%yz(loop_count,1:2) = char_2_real(row_chars(1:2))
+                                    xs%yz(loop_count,1:2) = char_2_real(row_chars(1:2))
                                 END IF
                             END DO
                         END DO                        
 
                         ! Get the manning's n information -- note that we will already be at the correct line
-                        ! FIXME: Careful, this format may not be correct with > 9 manning change points
+                        ! FIXME: Careful, this format may not be correct with > 9 manning change points (??)
                         read(input_file_unit_no, "(6X, I3)", iostat=io_test) mann_change_len
-                        allocate(reach_data(reach_count)%xsects(xsect_count)%roughness(mann_change_len,2))
+                        allocate(xs%roughness(mann_change_len,2))
                         loop_count=0
                         ! Loop over every line
                         DO i=1,ceiling(mann_change_len/3.0_dp)
@@ -256,14 +275,10 @@ module hecras_IO
                                 loop_count=loop_count+1
                                 row_chars=temp_chars( (3*j-2):(3*j-1) ) ! y value, manning change value (ignore the zero)
                                 IF(len_trim(row_chars(1))>0) THEN
-                                   reach_data(reach_count)%xsects(xsect_count)%roughness(loop_count, 1:2) &
-                                                                               = char_2_real(row_chars(1:2)) 
+                                   xs%roughness(loop_count, 1:2) = char_2_real(row_chars(1:2)) 
                                 END IF 
                             END DO
                         END DO 
-
-                        !FIXME: Get the downstream distances
-
 
                     END IF ! Type RM ...
                 END DO 

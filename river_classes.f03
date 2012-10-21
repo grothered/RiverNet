@@ -33,12 +33,13 @@ MODULE river_classes
         ! Store the flow variables at every cross-section that meets at this boundary
         ! Allow for junctions with 2 or more reaches joining
         CHARACTER(len=charlen):: junction_name
-        !CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:) ! Names of reaches that join here
-        !CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
-        CHARACTER(len=charlen):: reach_names(3) ! Names of reaches that join here
-        CHARACTER(len=charlen):: reach_ends(3) ! Upstream or Downstream? for each reach
-        !REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
-        REAL(dp) :: distances(3) ! Distance from the junction, for each reach
+
+        CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:) ! Names of reaches that join here
+        CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
+        REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
+        !CHARACTER(len=charlen):: reach_names(3) ! Names of reaches that join here
+        !CHARACTER(len=charlen):: reach_ends(3) ! Upstream or Downstream? for each reach
+        !REAL(dp) :: distances(3) ! Distance from the junction, for each reach
     END TYPE JUNCTION_BOUNDARY
 
     TYPE, EXTENDS(REACH_BOUNDARY):: PHYSICAL_BOUNDARY
@@ -116,6 +117,7 @@ MODULE river_classes
         INTEGER:: k
 
         print*, trim(xsects%myname)
+        print*, 'Downstream distances are ', xsects%downstream_dists
 
         print*, 'Cutline size = ', size(xsects%cutline(:,1))
         DO k=1,size(xsects%cutline(:,1))
