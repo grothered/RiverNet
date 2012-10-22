@@ -58,6 +58,11 @@ PROGRAM read_text
 
     DO i=1,num_reaches
         call reach_data(i)%get_downstream_dists_from_xsections()
+        DO j=1, size(reach_data(i)%xsects)
+            call reach_data(i)%xsects(j)%init_stage_area_curve()
+            print*, reach_data(i)%xsects(j)%stage_area_curve%Stage_Area
+            stop
+        END DO
     END DO
 
     ! Print output
