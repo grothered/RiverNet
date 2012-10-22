@@ -8,7 +8,8 @@ The main program is:
 
 Other code is:
 1) global_defs.f03 -- global constants (e.g real precision, character length, etc)
-2) river_classes.f03 -- classes for river / xsectional data
+2) river_classes.f03 -- classes for river reach data
+2b) xsect_classes.f03 -- classes for xsectional data
 3) IO_util.f03 -- code to read files / manipulate strings
 3) hecras_IO_b.f03 -- code to parse the hecras input data
 
