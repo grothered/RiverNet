@@ -16,9 +16,9 @@ MODULE xsect_classes
         ! index can make the look-up fast.
         REAL(dp), ALLOCATABLE:: Stage_Area(:,:)
         INTEGER(dp):: last_search_index
-        !contains
+        contains
         !PROCEDURE:: init=> init_stage_area_relation ! Initialise (and/or update) the stage_area relation
-        !PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
+        PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
     END TYPE    
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -50,7 +50,10 @@ MODULE xsect_classes
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     SUBROUTINE init_stage_area_curve(xsect)
+        !
         ! Compute data that will be used to interpolate stage from Area, and vice-versa
+        !
+
         CLASS(XSECT_DATA_TYPE), INTENT(INOUT):: xsect
 
         ! NOTE: INTEGERS ARE NOT dp, since this might trouble slatec
@@ -59,7 +62,7 @@ MODULE xsect_classes
         REAL(dp):: stage_area_protection=1000._dp ! FIXME: MAGIC NUMBER
         REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher 
 
-        ! PRESENTLY WE DO AN AREA COMPUTATION WHICH WORKS FOR XSECTIONS WITH
+        ! NOTE: PRESENTLY WE DO AN AREA COMPUTATION WHICH WORKS FOR XSECTIONS WITH
         ! INCREASING HORIZONTAL COORDINATE.
         ! THIS IS SIMPLE, BUT DOES NOT WORK e.g. FOR CIRCULAR PIPES, with pressiman slot
         !
@@ -91,15 +94,15 @@ MODULE xsect_classes
         unique_stage_count=1
         DO i=2,size(IPERM)
             IF(xsect%yz(IPERM(i),2)/= xsect%yz(IPERM(i-1), 2)) THEN
+                ! Bed value is different to the previous one
                 unique_stage_count=unique_stage_count+1
             END IF
         END DO
 
-        !print*, 'unique_stage_count=', unique_stage_count
-        ! Allocate stage_area_relation -- include space for one large stage
+        ! Allocate stage_area_relation -- include space for one large stage at the end
         ALLOCATE(xsect%stage_area_curve%Stage_Area(unique_stage_count+1,2))
-        xsect%stage_area_curve%last_search_index=1 ! Initialise
-        !print*, 'Allocated memory'
+        xsect%stage_area_curve%last_search_index=1 ! Initialise this index
+
         ! Set lowest Stage_area pair
         xsect%stage_area_curve%Stage_Area(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
 
@@ -107,12 +110,13 @@ MODULE xsect_classes
         unique_stage_count=1
         DO i=2, size(IPERM)
             IF(xsect%yz(IPERM(i),2)/= xsect%yz(IPERM(i-1), 2)) THEN
+                ! Bed value is different to the previous one
                 unique_stage_count=unique_stage_count+1
                 xsect%stage_area_curve%Stage_Area(unique_stage_count,1) = xsect%yz(IPERM(i),2)
             END IF
         END DO
 
-        ! Add an upper bound to the stage-area curve
+        ! Add an upper bound to the stage-area curve, so that extrapolation does not automatically fail
         xsect%stage_area_curve%Stage_Area(unique_stage_count+1, 1) = & 
                 xsect%stage_area_curve%Stage_Area(unique_stage_count,1) + stage_area_protection
 
@@ -121,10 +125,10 @@ MODULE xsect_classes
             incremental_area=0._dp
 
             stg=xsect%stage_area_curve%Stage_Area(i,1) ! shorthand
-            !stg_lower=xsect%stage_area_curve%Stage_Area(i-1,1) ! shorthand
 
+            ! Loop over the width of the xsection
             DO j=1,size(xsect%yz(:,1))-1
-                ! Add the area beneath stage=Stage_Area(i,1)
+                ! Add the area beneath stage_i=Stage_Area(i,2)
                 min_bed=min(xsect%yz(j,2), xsect%yz(j+1,2))
                 max_bed=max(xsect%yz(j,2), xsect%yz(j+1,2))
                 IF(stg> min_bed) THEN
@@ -141,7 +145,7 @@ MODULE xsect_classes
                     END IF
                 END IF
             END DO
-            xsect%stage_area_curve%Stage_Area(i,2) = incremental_area ! Temporary storage of area increment
+            xsect%stage_area_curve%Stage_Area(i,2) = incremental_area 
         END DO
 
         ! Add upper bound value so that we can continue extrapolating area, as
@@ -153,10 +157,69 @@ MODULE xsect_classes
     END SUBROUTINE init_stage_area_curve 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    FUNCTION stage_from_area(stage_area_curve, area)
+        ! Function to compute stage from area, using the stage-area curve for the xsection
+        CLASS(MONOTONIC_RELATION), INTENT(IN), target:: stage_area_curve
+        REAL(dp), INTENT(IN):: area
+        REAL(dp):: stage_from_area
+
+        INTEGER(dp):: i, lower_ind, l
+        REAL(dp):: weight
+        INTEGER(dp), pointer:: last_search_index
+        REAL(dp), pointer:: S_A(:,:)
+
+        IF(area<0._dp) THEN
+            print*, "ERROR: Area < 0._dp cannot be used to interpolate stage from stage_area_curve"
+            stop
+        ELSE IF(area==0._dp) THEN
+            stage_from_area=stage_area_curve%Stage_Area(1,1)
+            RETURN
+        ELSE
+            S_A=> stage_area_curve%Stage_Area(:,1:2)
+            l=size(S_A(:,1))
+            IF(area> S_A(l,1)) THEN
+                print*, 'ERROR: Area is too large to interpolate stage from stage area curve:'
+                print*, 'This is almost definitely an error'
+                stop
+            END IF
+
+            ! Shorthand notation
+            last_search_index=>stage_area_curve%last_search_index
+
+            ! Find index just below 
+            IF(area>=S_A(last_search_index,2)) THEN
+                DO i= last_search_index+1, l
+                    IF (area<S_A(i,2)) THEN
+                        lower_ind=i-1
+                        GOTO 111 ! Break out of loop
+                    END IF
+                END DO
+                111 CONTINUE
+            ELSE
+                DO i= last_search_index-1, 1,-1
+                    IF (area>=S_A(i,2)) THEN
+                        lower_ind=i
+                        GOTO 112 ! Break out of loop
+                    END IF
+                END DO
+                112 CONTINUE
+
+            END IF
+
+            last_search_index=lower_ind ! Update last_search_index
+            ! Weighted average
+            weight=(S_A(lower_ind+1,2)-area)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
+            stage_from_area = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
+
+        END IF 
+    END FUNCTION stage_from_area
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     SUBROUTINE print_xsect(xsect)
         CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsect
         INTEGER:: k
+        REAL(dp):: tmp
 
         print*, trim(xsect%myname)
         print*, 'Downstream distances are ', xsect%downstream_dists
@@ -175,6 +238,19 @@ MODULE xsect_classes
         DO k=1, size(xsect%roughness(:,1))
             print*, xsect%roughness(k,1:2)
         END DO
+
+        print*, 'Xsect Stage-Area curve'
+        DO k=1,size(xsect%stage_area_curve%Stage_Area(:,1))
+            print*, xsect%stage_area_curve%Stage_Area(k,:)
+        END DO
+
+        print*, 'Some numbers on stage-area curve'
+        tmp=minval(xsect%stage_area_curve%Stage_Area(:,2))
+        DO k=1, 10
+            tmp=tmp+(k-1)*1.0_dp
+            print*, xsect%stage_area_curve%eval(tmp), tmp
+        END DO
+    
 
     END SUBROUTINE print_xsect
     
