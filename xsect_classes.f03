@@ -90,7 +90,7 @@ MODULE xsect_classes
         !print*, xsect%yz(IPERM,2) 
         !stop
 
-        ! Count the number of unique stage values
+        ! Step 2: Count the number of unique stage values, and allocate the stage-area relation
         unique_stage_count=1
         DO i=2,size(IPERM)
             IF(xsect%yz(IPERM(i),2)/= xsect%yz(IPERM(i-1), 2)) THEN
@@ -102,6 +102,8 @@ MODULE xsect_classes
         ! Allocate stage_area_relation -- include space for one large stage at the end
         ALLOCATE(xsect%stage_area_curve%Stage_Area(unique_stage_count+1,2))
         xsect%stage_area_curve%last_search_index=1 ! Initialise this index
+
+        ! Step 3: Assign values
 
         ! Set lowest Stage_area pair
         xsect%stage_area_curve%Stage_Area(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
