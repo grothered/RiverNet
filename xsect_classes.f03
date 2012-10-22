@@ -248,7 +248,7 @@ MODULE xsect_classes
         tmp=minval(xsect%stage_area_curve%Stage_Area(:,2))
         DO k=1, 10
             tmp=tmp+(k-1)*1.0_dp
-            print*, xsect%stage_area_curve%eval(tmp), tmp
+            print*, xsect%stage_area_curve%eval(tmp), tmp, xsect%stage_area_curve%last_search_index
         END DO
     
 
