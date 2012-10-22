@@ -159,61 +159,84 @@ MODULE xsect_classes
     END SUBROUTINE init_stage_area_curve 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    FUNCTION stage_from_area(stage_area_curve, area)
-        ! Function to compute stage from area, using the stage-area curve for the xsection
+    FUNCTION stage_from_area(stage_area_curve, area, inverse)
+        ! Function to compute stage from  area, using the stage-area curve for the xsection
+        ! Optionally, the user may supply inverse=.TRUE., in which case the function computes
+        ! area, given stage
         CLASS(MONOTONIC_RELATION), INTENT(IN), target:: stage_area_curve
         REAL(dp), INTENT(IN):: area
+        LOGICAL, INTENT(IN), OPTIONAL:: inverse
         REAL(dp):: stage_from_area
 
+        ! Local variables
         INTEGER(dp):: i, lower_ind, l
         REAL(dp):: weight
         INTEGER(dp), pointer:: last_search_index
         REAL(dp), pointer:: S_A(:,:)
+        LOGICAL:: inverse_b
 
-        IF(area<0._dp) THEN
-            print*, "ERROR: Area < 0._dp cannot be used to interpolate stage from stage_area_curve"
-            stop
-        ELSE IF(area==0._dp) THEN
-            stage_from_area=stage_area_curve%Stage_Area(1,1)
-            RETURN
+        ! Set up optional argument inverse
+        IF(present(inverse)) THEN
+            inverse_b=inverse
         ELSE
-            S_A=> stage_area_curve%Stage_Area(:,1:2)
-            l=size(S_A(:,1))
-            IF(area> S_A(l,1)) THEN
-                print*, 'ERROR: Area is too large to interpolate stage from stage area curve:'
-                print*, 'This is almost definitely an error'
-                stop
-            END IF
+            inverse_b=.FALSE.
+        END IF            
 
-            ! Shorthand notation
-            last_search_index=>stage_area_curve%last_search_index
+        ! Firstly, set up stage_area relation, depending on whether or not we
+        ! are interpolating stage from area (default, inverse=false), or area from stage
+        ! (inverse=true)
+        IF(inverse_b.eqv..FALSE.) THEN
+            ! Default case
+            S_A=> stage_area_curve%Stage_Area(:,1:2) 
+        ELSE
+            ! Interpolate Area given stage
+            S_A=> stage_area_curve%Stage_Area(:,2:1:-1) 
+        END IF
+        last_search_index=>stage_area_curve%last_search_index
 
-            ! Find index just below 
-            IF(area>=S_A(last_search_index,2)) THEN
-                DO i= last_search_index+1, l
-                    IF (area<S_A(i,2)) THEN
-                        lower_ind=i-1
-                        GOTO 111 ! Break out of loop
-                    END IF
-                END DO
-                111 CONTINUE
-            ELSE
-                DO i= last_search_index-1, 1,-1
-                    IF (area>=S_A(i,2)) THEN
-                        lower_ind=i
-                        GOTO 112 ! Break out of loop
-                    END IF
-                END DO
-                112 CONTINUE
+        ! Logical checks / quick exit
+        IF(area<S_A(1,2)) THEN
+            print*, "ERROR: Trying to interpolate (area or stage): Used a"
+            print*, "predictor (stage or area) which is < min(stage or area) on this cross-section"
+            stop
+        END IF
 
-            END IF
 
-            last_search_index=lower_ind ! Update last_search_index
-            ! Weighted average
-            weight=(S_A(lower_ind+1,2)-area)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
-            stage_from_area = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
+        l=size(S_A(:,1))
+        IF(area> S_A(l,1)) THEN
+            print*, 'ERROR: Input Area/Stage is too large to interpolate from stage area curve:'
+            print*, 'This is almost definitely an error'
+            stop
+        END IF
 
-        END IF 
+        ! Main routine
+
+        ! Find index just below our desired interpolation region
+        lower_ind=-1
+        IF(area>=S_A(last_search_index,2)) THEN
+            DO i= last_search_index+1, l
+                IF (area<S_A(i,2)) THEN
+                    lower_ind=i-1
+                    GOTO 111 ! Break out of loop
+                END IF
+            END DO
+            111 CONTINUE
+        ELSE
+            ! Area < Area at last search index
+            DO i= last_search_index-1, 1,-1
+                IF (area>=S_A(i,2)) THEN
+                    lower_ind=i
+                    GOTO 112 ! Break out of loop
+                END IF
+            END DO
+            112 CONTINUE
+        END IF
+
+        last_search_index=lower_ind ! Update last_search_index
+        ! Weighted average
+        weight=(S_A(lower_ind+1,2)-area)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
+        stage_from_area = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
+
     END FUNCTION stage_from_area
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -221,7 +244,7 @@ MODULE xsect_classes
     SUBROUTINE print_xsect(xsect)
         CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsect
         INTEGER:: k
-        REAL(dp):: tmp
+        REAL(dp):: tmp, tmp2, tmp3
 
         print*, trim(xsect%myname)
         print*, 'Downstream distances are ', xsect%downstream_dists
@@ -246,11 +269,20 @@ MODULE xsect_classes
             print*, xsect%stage_area_curve%Stage_Area(k,:)
         END DO
 
-        print*, 'Some numbers on stage-area curve'
+        ! Test of stage-area relation
+        print*, 'Checking that stage-area curve interpolates okay'
         tmp=minval(xsect%stage_area_curve%Stage_Area(:,2))
         DO k=1, 10
-            tmp=tmp+(k-1)*1.0_dp
-            print*, xsect%stage_area_curve%eval(tmp), tmp, xsect%stage_area_curve%last_search_index
+            tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
+            tmp2=xsect%stage_area_curve%eval(tmp) ! Stage when area = tmp
+            tmp3=xsect%stage_area_curve%eval(tmp2,inverse=.TRUE.) ! Should = tmp
+            IF(abs(tmp3 - tmp) > 1.0e-8_dp) THEN
+                print*, 'ERROR: Seems there is a problem on this stage-area curve'
+                print*, 'Area= ', tmp, ' Stage= ', tmp2, ' Inverted Area ', tmp3, ' Difference ',tmp-tmp3
+                stop
+            END IF
+            !print*,tmp2 , tmp,tmp3, xsect%stage_area_curve%last_search_index
+            
         END DO
     
 
