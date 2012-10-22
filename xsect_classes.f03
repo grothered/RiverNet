@@ -270,7 +270,7 @@ MODULE xsect_classes
         END DO
 
         ! Test of stage-area relation
-        print*, 'Checking that stage-area curve interpolates okay'
+        print*, 'Checking that stage-area curve interpolates okay...'
         tmp=minval(xsect%stage_area_curve%Stage_Area(:,2))
         DO k=1, 10
             tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
@@ -284,6 +284,7 @@ MODULE xsect_classes
             !print*,tmp2 , tmp,tmp3, xsect%stage_area_curve%last_search_index
             
         END DO
+        print*, 'PASS'
     
 
     END SUBROUTINE print_xsect
