@@ -59,7 +59,6 @@ MODULE river_classes
         ! Array of the downstream distances (DX) -- e.g. for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
 
-
         contains
         PROCEDURE:: print => print_reach
         PROCEDURE:: get_downstream_dists_from_xsections => get_downstream_dists_from_xsections
@@ -80,6 +79,8 @@ MODULE river_classes
                                             trim(generic_boundary%input_file)
             TYPE IS (JUNCTION_BOUNDARY)
                 print*, '###############'
+                print*, 
+                print*, 'FIXME: Need to check that distances are set correctly'
                 print*, trim(generic_boundary%boundary_type), ' ',&
                                             trim(generic_boundary%junction_name)
                 print*, trim(generic_boundary%junction_description)
