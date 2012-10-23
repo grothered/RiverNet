@@ -259,9 +259,9 @@ MODULE xsect_classes
             print*, xsect%yz(k,1:2) 
         END DO
         
-        print*, 'Xsect roughness change points:'
+        print*, 'Xsect roughness values:'
         DO k=1, size(xsect%roughness(:,1))
-            print*, xsect%roughness(k,1:2)
+            print*, xsect%yz(k,1) , xsect%roughness(k,1)
         END DO
 
         print*, 'Xsect Stage-Area curve'

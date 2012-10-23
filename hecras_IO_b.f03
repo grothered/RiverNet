@@ -87,7 +87,8 @@ module hecras_IO
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
         INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count
-        INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len
+        INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len, temp_int
+        REAL(dp):: temp_reals(veclen,2)
         CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
         ! Boundary conditions
@@ -266,19 +267,37 @@ module hecras_IO
                         ! Get the manning's n information -- note that we will already be at the correct line
                         ! FIXME: Careful, this format may not be correct with > 9 manning change points (??)
                         read(input_file_unit_no, "(6X, I3)", iostat=io_test) mann_change_len
-                        allocate(xs%roughness(mann_change_len,2))
+                        !allocate(xs%roughness(mann_change_len,2))
+                        allocate(xs%roughness(yz_len,1)) ! 1 manning value for every bed point
                         loop_count=0
                         ! Loop over every line
                         DO i=1,ceiling(mann_change_len/3.0_dp)
                             read(input_file_unit_no, "(9A8)", iostat=io_test) temp_chars(1:9)
+                            ! Loop over every manning value on this line
                             DO j=1,3
                                 loop_count=loop_count+1
                                 row_chars=temp_chars( (3*j-2):(3*j-1) ) ! y value, manning change value (ignore the zero)
                                 IF(len_trim(row_chars(1))>0) THEN
-                                   xs%roughness(loop_count, 1:2) = char_2_real(row_chars(1:2)) 
+                                    !Store manning_change_point, roughness in temporary array
+                                    temp_reals(loop_count, 1:2) = char_2_real(row_chars(1:2)) 
+                                ELSE
+                                    ! We have read all the manning values
+                                    GOTO 1411 ! Break out of loop
                                 END IF 
                             END DO
-                        END DO 
+                        END DO
+                        1411 CONTINUE 
+                        ! Now fill out xs%roughness(1:yz_len,1)
+                        DO i=1,yz_len
+                            temp_int=count(xs%yz(i,1) >= temp_reals(1:mann_change_len,1)) ! Index of desired manning value
+                            xs%roughness(i,1) = temp_reals(temp_int,2) 
+                            ! Sanity check
+                            IF(xs%roughness(i,1) < 0.01) THEN
+                                print*, 'ERROR: Low roughness values -- is this an IO error? '
+                                print*, xs%roughness(1:i,1)
+                                stop
+                            END IF
+                        END DO
 
                     END IF ! Type RM ...
                 END DO 
