@@ -21,10 +21,10 @@ MODULE IO_util
 
     FUNCTION count_file_lines(input_file_unit_no)
         ! Count the number of lines in input_file_unit_no
-        INTEGER(dp):: input_file_unit_no
-        INTEGER(dp):: count_file_lines
+        INTEGER(ip):: input_file_unit_no
+        INTEGER(ip):: count_file_lines
 
-        INTEGER(dp)::io_test=0
+        INTEGER(ip)::io_test=0
 
         rewind(input_file_unit_no) ! Start of file
 
@@ -42,11 +42,11 @@ MODULE IO_util
     SUBROUTINE read_character_file(input_file_unit_no, output_lines, format_string)
         ! Read the entire contents of input_file_unit_no into the allocatable
         ! character array 'output_lines'. Use format_string in the read
-        INTEGER(dp), INTENT(IN):: input_file_unit_no
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
         CHARACTER(*), INTENT(IN):: format_string
         CHARACTER(len=charlen), ALLOCATABLE, INTENT(INOUT):: output_lines(:)
 
-        INTEGER(dp):: num_lines, i, io_test=0
+        INTEGER(ip):: num_lines, i, io_test=0
 
         ! Clean out 'output_lines' in case it is already allocated
         if(allocated(output_lines)) deallocate(output_lines)
@@ -74,8 +74,8 @@ MODULE IO_util
         ! returned negative in this case]
         ! Assumes file is read with format=format_string, and io_test is used
         ! to track IO errors
-        INTEGER(dp), INTENT(IN):: input_file_unit_no
-        INTEGER(dp), INTENT(OUT)::  io_test
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
+        INTEGER(ip), INTENT(OUT)::  io_test
         CHARACTER(*), INTENT(IN):: pattern, format_string
 
         CHARACTER(len=charlen) temp_char
@@ -97,9 +97,9 @@ MODULE IO_util
         ! FIXME: Presently, pattern must be at the start of the string
         CHARACTER(len=charlen), INTENT(IN):: lines(:)
         CHARACTER(*),INTENT(IN):: pattern
-        INTEGER(dp), allocatable, INTENT(OUT):: indices(:)
+        INTEGER(ip), allocatable, INTENT(OUT):: indices(:)
 
-        INTEGER(dp):: pos, i, n, counter
+        INTEGER(ip):: pos, i, n, counter
         CHARACTER(len=charlen):: mychar
 
         ! Remove indices if already exists

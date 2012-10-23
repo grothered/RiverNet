@@ -15,7 +15,7 @@ MODULE xsect_classes
         ! evaluate the function near to where we last evaluated it. Storing the 
         ! index can make the look-up fast.
         REAL(dp), ALLOCATABLE:: Stage_Area(:,:)
-        INTEGER(dp):: last_search_index
+        INTEGER(ip):: last_search_index
         contains
         !PROCEDURE:: init=> init_stage_area_relation ! Initialise (and/or update) the stage_area relation
         PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
@@ -56,7 +56,7 @@ MODULE xsect_classes
 
         CLASS(XSECT_DATA_TYPE), INTENT(INOUT):: xsect
 
-        ! NOTE: INTEGERS ARE NOT dp, since this might trouble slatec
+        ! NOTE: INTEGERS ARE NOT ip, since this might trouble slatec
         INTEGER:: IPERM(size(xsect%yz(:,1))), ierr, i, j,unique_stage_count
 
         REAL(dp):: stage_area_protection=1000._dp ! FIXME: MAGIC NUMBER
@@ -169,9 +169,9 @@ MODULE xsect_classes
         REAL(dp):: stage_from_area
 
         ! Local variables
-        INTEGER(dp):: i, lower_ind, l
+        INTEGER(ip):: i, lower_ind, l
         REAL(dp):: weight
-        INTEGER(dp), pointer:: last_search_index
+        INTEGER(ip), pointer:: last_search_index
         REAL(dp), pointer:: S_A(:,:)
         LOGICAL:: inverse_b
 
@@ -276,12 +276,13 @@ MODULE xsect_classes
             tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
             tmp2=xsect%stage_area_curve%eval(tmp) ! Stage when area = tmp
             tmp3=xsect%stage_area_curve%eval(tmp2,inverse=.TRUE.) ! Should = tmp
+
+            ! TEST of Stage-area relation
             IF(abs(tmp3 - tmp) > 1.0e-8_dp) THEN
                 print*, 'ERROR: Seems there is a problem on this stage-area curve'
                 print*, 'Area= ', tmp, ' Stage= ', tmp2, ' Inverted Area ', tmp3, ' Difference ',tmp-tmp3
                 stop
             END IF
-            !print*,tmp2 , tmp,tmp3, xsect%stage_area_curve%last_search_index
             
         END DO
         print*, 'PASS'

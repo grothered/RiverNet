@@ -16,10 +16,10 @@ module hecras_IO
         ! Subroutine to count the number of reaches in the input file,
         ! which are identified with the lines 'River Reach='
 
-        INTEGER(dp), INTENT(IN):: input_file_unit_no
-        INTEGER(dp), INTENT(OUT):: num_reaches
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
+        INTEGER(ip), INTENT(OUT):: num_reaches
 
-        INTEGER(dp):: io_test=0, counter=0
+        INTEGER(ip):: io_test=0, counter=0
         CHARACTER(len=charlen):: pattern_char, format_char
 
         DO WHILE(io_test>=0)
@@ -44,7 +44,7 @@ module hecras_IO
 
     SUBROUTINE COUNT_XSECTIONS(input_file_unit_no, reach_data, num_reaches)
         ! Count the xsections on each reach, and append the number to the reach_data
-        INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
+        INTEGER(ip), INTENT(IN):: input_file_unit_no, num_reaches
         TYPE(reach_data_type), INTENT(IN OUT):: reach_data(num_reaches)
 
         CHARACTER(len=charlen):: temp_char
@@ -81,13 +81,13 @@ module hecras_IO
     
     SUBROUTINE READ_REACHES(input_file_unit_no, reach_data, num_reaches)
         ! Subroutine to read reach names/coordinates/xsections etc from hecras geometry file
-        INTEGER(dp), INTENT(IN):: input_file_unit_no, num_reaches
+        INTEGER(ip), INTENT(IN):: input_file_unit_no, num_reaches
         TYPE(reach_data_type), INTENT(IN OUT), target:: reach_data(num_reaches)
 
         ! Local vars
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen), pattern_char, format_char
-        INTEGER(dp):: io_test=0, loop_count, i, j,reach_count, xsect_count
-        INTEGER(dp):: cutline_len, yz_len, coordinates_len, mann_change_len, temp_int
+        INTEGER(ip):: io_test=0, loop_count, i, j,reach_count, xsect_count
+        INTEGER(ip):: cutline_len, yz_len, coordinates_len, mann_change_len, temp_int
         REAL(dp):: temp_reals(veclen,2)
         CHARACTER(len=charlen):: row_chars(2)
         LOGICAL:: NEXT_REACH
@@ -147,7 +147,7 @@ module hecras_IO
                 ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
              
                 ! **Randomly** assign boundary types, to test that we can use polymorphism
-                IF(mod(reach_count,2_dp)==0) THEN 
+                IF(mod(reach_count,2_ip)==0) THEN 
                     allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
                     allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
                 ELSE
@@ -313,55 +313,37 @@ module hecras_IO
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE read_hecras_file(input_file,input_file_unit_no, reach_data, print_output)
         ! Read hecras data  from 'input_file' into the allocatable reach_data vector
+        ! Optionally, print the data out
         CHARACTER(len=*), INTENT(IN):: input_file !, temp_char(100)
-        INTEGER(dp), INTENT(IN):: input_file_unit_no
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
         TYPE(reach_data_type), ALLOCATABLE, INTENT(INOUT):: reach_data(:)
         LOGICAL, INTENT(IN):: print_output
 
         ! Local variables
-        integer(dp):: num_reaches
+        integer(ip):: num_reaches
         integer:: i,j
 
         ! Open the input file
         OPEN(unit=input_file_unit_no, file=input_file)
       
-        ! Read input file (note -- some earlier functions don't need the file read
-        ! in, they just read from it as needed). But reading is probably easier
-        !format_string="(A)" ! Read all lines 
-        !call read_character_file(input_file_unit_no, file_lines, "(A)")
-        !print*, 'Length of file_lines = ', size(file_lines)
-
-
         ! Count the number of reaches
         call count_reaches(input_file_unit_no, num_reaches) !-- this operates on the file
-        !call find_line_matches(file_lines, 'River Reach=', reach_indices)
-        !print*, reach_indices
-        !num_reaches=size(reach_indices)
-        !print*, 'There are ', num_reaches, ' reaches'
-        !!stop
-
         ! Set up storage for reach information
         ALLOCATE( reach_data(num_reaches) )
 
         ! Count the number of xsections
         call count_xsections(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
-        !call find_line_matches(file_lines, 'Type RM Length L Ch R = 1', xsect_indices)
-        !reach_data(num_reaches)%xsect_count=count(xsect_indices>reach_indices(num_reaches))
-        !IF(num_reaches>1) THEN
-        !    DO i = num_reaches-1, 1, -1
-        !        reach_data(i)%xsect_count=count((xsect_indices>reach_indices(i)).AND.(xsect_indices<reach_indices(i+1)))
-        !    END DO
-        !END IF
 
+        ! Read the data into reach_data
         call read_reaches(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
         CLOSE(input_file_unit_no)
 
+        ! Set downstream distances in reach_data, and initiate the stage-area curves
         DO i=1,num_reaches
             call reach_data(i)%get_downstream_dists_from_xsections()
+            ! Loop over every cross-section
             DO j=1, size(reach_data(i)%xsects)
                 call reach_data(i)%xsects(j)%init_stage_area_curve()
-                !print*, reach_data(i)%xsects(j)%stage_area_curve%Stage_Area
-                !stop
             END DO
         END DO
 

@@ -7,10 +7,6 @@ clean: main
 main: hecras_IO_b.o global_defs.o IO_util.o xsect_classes.o river_classes.o main.f03
 	$(COMPILER) $^ -o $@ libslatec.a
  
-# Main program + deps
-#read_file: hecras_IO_b.o global_defs.o IO_util.o xsect_classes.o river_classes.o read_file.f03
-#	$(COMPILER) $^ -o $@ libslatec.a
-
 hecras_IO_b.o: global_defs.o IO_util.o xsect_classes.o river_classes.o hecras_IO_b.f03
 	$(COMPILER) -c hecras_IO_b.f03 
 

@@ -8,6 +8,7 @@ MODULE river_classes
 
     TYPE REACH_BOUNDARY
         CHARACTER(len=charlen):: boundary_type ! junction or physical -- do I even need this?
+        REAL(dp):: boundary_location(2) ! x-y data associated with the boundary
         contains
         PROCEDURE:: print => print_boundary
     END TYPE REACH_BOUNDARY
@@ -45,7 +46,7 @@ MODULE river_classes
         ! Variables which will be dynamically allocated the boundary information
         CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
         
-        INTEGER(dp):: xsect_count ! Number of xsections
+        INTEGER(ip):: xsect_count ! Number of xsections
         TYPE(XSECT_DATA_TYPE), ALLOCATABLE:: xsects(:) ! Hold array of xsection information
 
         !
@@ -116,7 +117,7 @@ MODULE river_classes
         ! Why?? Cleaner access compared with having them all within their cross-sections
         CLASS(REACH_DATA_TYPE), INTENT(INOUT):: reach
 
-        INTEGER(dp)::i
+        INTEGER(ip)::i
 
         ! Make array of dim (number of xsections, number of downstream distances per xsection)
         ! There can be more than 1 downstream distance per xsection (e.g. hecras uses the left bank, channel and right bank)
