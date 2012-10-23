@@ -17,6 +17,7 @@ MODULE river_classes
         ! Store the flow variables at every cross-section that meets at this boundary
         ! Allow for junctions with 2 or more reaches joining
         CHARACTER(len=charlen):: junction_name
+        CHARACTER(len=charlen):: junction_description
 
         CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:) ! Names of reaches that join here
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach

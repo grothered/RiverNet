@@ -205,7 +205,8 @@ MODULE xsect_classes
         l=size(S_A(:,1))
         IF(area> S_A(l,1)) THEN
             print*, 'ERROR: Input Area/Stage is too large to interpolate from stage area curve:'
-            print*, 'This is almost definitely an error'
+            print*, 'This is almost definitely an error, as stage_area_protection should make'
+            print*, ' the curve interpolate well beyond the cross-sectional data'
             stop
         END IF
 
@@ -217,19 +218,17 @@ MODULE xsect_classes
             DO i= last_search_index+1, l
                 IF (area<S_A(i,2)) THEN
                     lower_ind=i-1
-                    GOTO 111 ! Break out of loop
+                    EXIT
                 END IF
             END DO
-            111 CONTINUE
         ELSE
             ! Area < Area at last search index
             DO i= last_search_index-1, 1,-1
                 IF (area>=S_A(i,2)) THEN
                     lower_ind=i
-                    GOTO 112 ! Break out of loop
+                    EXIT
                 END IF
             END DO
-            112 CONTINUE
         END IF
 
         last_search_index=lower_ind ! Update last_search_index

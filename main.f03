@@ -8,6 +8,6 @@ PROGRAM main
     CHARACTER(len=charlen):: input_file='hectest.g05'
 
     ! Read the data
-    call read_hecras_file(input_file, 11_ip, reach_data, .TRUE.) 
+    call read_hecras_file(input_file, reach_data, .FALSE.) 
 
 END PROGRAM

@@ -12,9 +12,11 @@ module hecras_IO
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE COUNT_REACHES(input_file_unit_no, num_reaches)
-        ! DEPRECATED -- Replaced by the generic 'find_line_matches' + size()
         ! Subroutine to count the number of reaches in the input file,
         ! which are identified with the lines 'River Reach='
+
+        ! NOTE: CAN ALTERNATIVELY USE the generic 'find_line_matches' + size()
+        ! But that requires reading the entire input file, whereas this doesn't
 
         INTEGER(ip), INTENT(IN):: input_file_unit_no
         INTEGER(ip), INTENT(OUT):: num_reaches
@@ -282,11 +284,10 @@ module hecras_IO
                                     temp_reals(loop_count, 1:2) = char_2_real(row_chars(1:2)) 
                                 ELSE
                                     ! We have read all the manning values
-                                    GOTO 1411 ! Break out of loop
+                                    EXIT
                                 END IF 
                             END DO
                         END DO
-                        1411 CONTINUE 
                         ! Now fill out xs%roughness(1:yz_len,1)
                         DO i=1,yz_len
                             temp_int=count(xs%yz(i,1) >= temp_reals(1:mann_change_len,1)) ! Index of desired manning value
@@ -309,22 +310,79 @@ module hecras_IO
 
         rewind(input_file_unit_no)
     END SUBROUTINE READ_REACHES
-    
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE read_hecras_file(input_file,input_file_unit_no, reach_data, print_output)
+    SUBROUTINE read_junctions(input_file_unit_no, reach_data, num_reaches)
+        ! Read information from hecras file about junctions into reach data
+        INTEGER(ip), INTENT(IN):: input_file_unit_no, num_reaches
+        TYPE(REACH_DATA_TYPE):: reach_data(num_reaches)
+
+        INTEGER(ip):: io_test=0, i
+        TYPE(JUNCTION_BOUNDARY):: jb
+        CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
+        REAL(dp):: temp_reals(veclen)
+
+        ! Go to the start of the file
+        rewind(input_file_unit_no)
+
+        DO WHILE (io_test>=0)
+            ! Go to next line matching 'Junct Name='
+            call next_match(input_file_unit_no, "Junct Name=", io_test, "(A)")
+            IF(io_test<0) EXIT
+            ! Read the junction information           
+            ! Looks like this:
+            !
+            !Junct Name=tapayan_j2      
+            !Junct Desc=, 0 , 0 ,-1 ,0
+            !Junct X Y & Text X Y=510057.59375,1611264.5,510057.59375,1611264.5
+            !Up River,Reach=Tapayan_network ,Creek7          
+            !Dn River,Reach=Tapayan_network ,Creek4          
+            !Dn River,Reach=Tapayan_network ,Creek6          
+            !Dn River,Reach=Tapayan_network ,Creek5          
+            !Junc L&A=0,0
+            !Junc L&A=0,0
+            !Junc L&A=0,0
+            !
+            backspace(input_file_unit_no)
+            ! Get junction name and description
+            read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_name
+            read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_description
+            
+            ! Get coordinates
+            read(input_file_unit_no, "(21X, A64)", iostat=io_test) temp_char
+            read(temp_char, *) temp_reals(1:4)
+            jb%boundary_location=temp_reals(1:2)
+
+            ! Get inflowing reaches, with up/dn information
+            DO WHILE (.TRUE.)
+                ! Read next line containing names of reaches meeting here
+                read(input_file_unit_no, "(A)", iostat=io_test) temp_char
+                IF(temp_char(4:8)/='River') THEN
+                    EXIT
+                END IF
+
+                read(temp_char, "(A8, 7X, A16, 1X, A16)", iostat=io_test) temp_chars(1:3)
+            END DO
+             
+            ! Loop over ev
+
+        END DO
+
+    END SUBROUTINE   
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE read_hecras_file(input_file,reach_data, print_output)
         ! Read hecras data  from 'input_file' into the allocatable reach_data vector
         ! Optionally, print the data out
         CHARACTER(len=*), INTENT(IN):: input_file !, temp_char(100)
-        INTEGER(ip), INTENT(IN):: input_file_unit_no
         TYPE(reach_data_type), ALLOCATABLE, INTENT(INOUT):: reach_data(:)
         LOGICAL, INTENT(IN):: print_output
 
         ! Local variables
-        integer(ip):: num_reaches
+        integer(ip):: num_reaches, input_file_unit_no
         integer:: i,j
 
         ! Open the input file
-        OPEN(unit=input_file_unit_no, file=input_file)
+        OPEN(newunit=input_file_unit_no, file=input_file)
       
         ! Count the number of reaches
         call count_reaches(input_file_unit_no, num_reaches) !-- this operates on the file
