@@ -11,6 +11,7 @@ MODULE river_classes
         REAL(dp):: boundary_location(2) ! x-y data associated with the boundary
         contains
         PROCEDURE:: print => print_boundary
+        PROCEDURE:: delete => deallocate_reach_boundary
     END TYPE REACH_BOUNDARY
 
     TYPE, EXTENDS(REACH_BOUNDARY):: JUNCTION_BOUNDARY
@@ -19,7 +20,7 @@ MODULE river_classes
         CHARACTER(len=charlen):: junction_name
         CHARACTER(len=charlen):: junction_description
 
-        CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:) ! Names of reaches that join here
+        CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:, :) ! Names of reaches that join here
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
         !CHARACTER(len=charlen):: reach_names(3) ! Names of reaches that join here
@@ -40,7 +41,7 @@ MODULE river_classes
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     TYPE REACH_DATA_TYPE
         ! Type to hold reach information
-        CHARACTER(len=charlen), ALLOCATABLE:: names(:) ! Hold an array of names associated with the reach
+        CHARACTER(len=charlen):: names(2) ! Hold an array of names associated with the reach. Hecras has 2
         
         REAL(dp), ALLOCATABLE:: coordinates(:,:) ! Centreline coordinates
         
@@ -71,13 +72,23 @@ MODULE river_classes
     SUBROUTINE print_boundary(generic_boundary)
         CLASS(REACH_BOUNDARY):: generic_boundary
 
+        INTEGER:: i
+
         SELECT TYPE(generic_boundary)
             TYPE IS (PHYSICAL_BOUNDARY)
                 print*, trim(generic_boundary%boundary_type),' ', &
                                             trim(generic_boundary%input_file)
             TYPE IS (JUNCTION_BOUNDARY)
+                print*, '###############'
                 print*, trim(generic_boundary%boundary_type), ' ',&
                                             trim(generic_boundary%junction_name)
+                print*, trim(generic_boundary%junction_description)
+                DO i=1, size(generic_boundary%reach_names(:,1))
+                    print*, trim(generic_boundary%reach_names(i,1)), ' ',& 
+                            trim(generic_boundary%reach_names(i,2)), ' ',&
+                            trim(generic_boundary%reach_ends(i)), ' ',&
+                            generic_boundary%distances(i)
+                END DO
         END SELECT
 
     END SUBROUTINE print_boundary 
@@ -128,5 +139,17 @@ MODULE river_classes
         END DO
 
     END SUBROUTINE get_downstream_dists_from_xsections
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE deallocate_reach_boundary(jb)
+            CLASS(reach_boundary):: jb
+
+            SELECT TYPE(jb)
+                TYPE IS(JUNCTION_BOUNDARY)
+                    DEALLOCATE(jb%reach_names)
+                    DEALLOCATE(jb%reach_ends)
+                    DEALLOCATE(jb%distances)
+            END SELECT
+    END SUBROUTINE deallocate_reach_boundary
 
 END MODULE river_classes

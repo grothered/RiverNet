@@ -125,38 +125,38 @@ module hecras_IO
                 print*, 'REACH COUNT:: ', reach_count
               
                 ! Get 'reach_names' 
-                ALLOCATE(reach_data(reach_count)%names(2)) 
+                !ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                
                 !!!HYPOTHETICAL BOUNDARY CONDITION ALLOCATION
                 ! FIXME: THIS BELONGS ELSEWHERE
                 ! Fake physical boundary
-                db_pb%boundary_type='Physical_boundary'
-                db_pb%input_file='myfile.txt'
-                db_pb%compute_method='Prefer_w'
+                !db_pb%boundary_type='Physical_boundary'
+                !db_pb%input_file='myfile.txt'
+                !db_pb%compute_method='Prefer_w'
 
-                ! Fake junction boundary
-                ALLOCATE(ub_jb)
-                ub_jb%boundary_type='Junction_boundary'
-                ub_jb%junction_name='myjunc'
-                !allocate(jb(reach_count)%reach_names(3))
-                ALLOCATE(ub_jb%reach_names(3))
-                ALLOCATE(ub_jb%reach_ends(3))
-                ub_jb%reach_names(1)="asf"
-                ub_jb%reach_names(2)= "asa"
-                ub_jb%reach_names(3)= "asdfadsf"
-                !allocate(jb(reach_count)%reach_ends(3))
-                ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
+                !! Fake junction boundary
+                !ALLOCATE(ub_jb)
+                !ub_jb%boundary_type='Junction_boundary'
+                !ub_jb%junction_name='myjunc'
+                !!allocate(jb(reach_count)%reach_names(3))
+                !ALLOCATE(ub_jb%reach_names(3))
+                !ALLOCATE(ub_jb%reach_ends(3))
+                !ub_jb%reach_names(1)="asf"
+                !ub_jb%reach_names(2)= "asa"
+                !ub_jb%reach_names(3)= "asdfadsf"
+                !!allocate(jb(reach_count)%reach_ends(3))
+                !ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
              
-                ! **Randomly** assign boundary types, to test that we can use polymorphism
-                IF(mod(reach_count,2_ip)==0) THEN 
-                    allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
-                    allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
-                ELSE
-                    allocate(reach_data(reach_count)%Downstream_boundary, source=ub_jb) 
-                    allocate(reach_data(reach_count)%Upstream_boundary, source=db_pb) 
-                END IF 
-                DEALLOCATE(ub_jb)
+                !! **Randomly** assign boundary types, to test that we can use polymorphism
+                !IF(mod(reach_count,2_ip)==0) THEN 
+                !    allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
+                !    allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
+                !ELSE
+                !    allocate(reach_data(reach_count)%Downstream_boundary, source=ub_jb) 
+                !    allocate(reach_data(reach_count)%Upstream_boundary, source=db_pb) 
+                !END IF 
+                !DEALLOCATE(ub_jb)
                 !! END TEST OF BOUNDARY CONDITION 
  
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
@@ -314,9 +314,9 @@ module hecras_IO
     SUBROUTINE read_junctions(input_file_unit_no, reach_data, num_reaches)
         ! Read information from hecras file about junctions into reach data
         INTEGER(ip), INTENT(IN):: input_file_unit_no, num_reaches
-        TYPE(REACH_DATA_TYPE):: reach_data(num_reaches)
+        TYPE(REACH_DATA_TYPE), INTENT(IN OUT):: reach_data(num_reaches)
 
-        INTEGER(ip):: io_test=0, i
+        INTEGER(ip):: io_test=0, i, join_count, j
         TYPE(JUNCTION_BOUNDARY):: jb
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
         REAL(dp):: temp_reals(veclen)
@@ -324,9 +324,14 @@ module hecras_IO
         ! Go to the start of the file
         rewind(input_file_unit_no)
 
+        !print*, 'Starting junction routine'
+
+        jb%boundary_type='junction_boundary'
         DO WHILE (io_test>=0)
             ! Go to next line matching 'Junct Name='
-            call next_match(input_file_unit_no, "Junct Name=", io_test, "(A)")
+            !print*, 'Finding match'
+            call next_match(input_file_unit_no, "Junct Name=", io_test, "(A11)")
+            !print*, 'io_test=', io_test
             IF(io_test<0) EXIT
             ! Read the junction information           
             ! Looks like this:
@@ -346,6 +351,7 @@ module hecras_IO
             ! Get junction name and description
             read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_name
             read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_description
+            !print*, trim(jb%junction_name), trim(jb%junction_description)
             
             ! Get coordinates
             read(input_file_unit_no, "(21X, A64)", iostat=io_test) temp_char
@@ -353,20 +359,69 @@ module hecras_IO
             jb%boundary_location=temp_reals(1:2)
 
             ! Get inflowing reaches, with up/dn information
+            ! Lines look like 'Dn River,Reach=Tapayan_network ,Creek5'          
+            join_count=0
             DO WHILE (.TRUE.)
                 ! Read next line containing names of reaches meeting here
                 read(input_file_unit_no, "(A)", iostat=io_test) temp_char
                 IF(temp_char(4:8)/='River') THEN
+                    backspace(input_file_unit_no)
                     EXIT
                 END IF
+                !Read all  relevant data into temporary array
+                read(temp_char, "(A8, 7X, A16, 1X, A16)", iostat=io_test) temp_chars((3*join_count+1):(3*join_count+3))
 
-                read(temp_char, "(A8, 7X, A16, 1X, A16)", iostat=io_test) temp_chars(1:3)
+                join_count=join_count+1
             END DO
-             
-            ! Loop over ev
 
+            ! Pack into jb object
+            ALLOCATE(jb%reach_names(join_count,2))
+            ALLOCATE(jb%reach_ends(join_count))
+            ALLOCATE(jb%distances(join_count))
+
+            DO i=1,join_count
+                jb%reach_names(i,1) = temp_chars(3*(i-1) +2)
+                jb%reach_names(i,2) = temp_chars(3*(i-1) +3)
+
+                IF(temp_chars(3*(i-1)+1)(1:2) =='Up') THEN
+                    jb%reach_ends(i) = 'Up'
+                ELSE
+                    jb%reach_ends(i) = 'Dn'
+                END IF
+            END DO
+
+            ! Read the downstream distances
+            ! Lines look like: 'Junc L&A=0,0'
+            DO i=1, join_count-1
+                read(input_file_unit_no, "(9X, A)", iostat=io_test) temp_char
+                read(temp_char, *) temp_reals(1:2)
+                jb%distances(i) = temp_reals(1)
+            END DO  
+                jb%distances(join_count)=0._dp
+
+            call jb%print()
+
+            ! Now loop over every reach, and add the boundary information as needed
+            DO i=1,num_reaches
+                ! Loop over every connecting reach in the junction
+                DO j = 1, size(jb%reach_names(:,1))
+                    IF((jb%reach_names(j,1)==reach_data(i)%names(1)).AND.(jb%reach_names(j,2)==reach_data(i)%names(2)) ) THEN
+                        IF(jb%reach_ends(j) == 'Up') THEN
+                            allocate(reach_data(i)%Upstream_boundary, source=jb)
+                        ELSE
+                            allocate(reach_data(i)%Downstream_boundary, source=jb)
+                        END IF
+                    END IF
+                END DO
+            END DO
+
+            ! Clean up
+            call jb%delete()
         END DO
 
+        !print*, 'Finished junction routine'
+        ! Back to start of file
+        rewind(input_file_unit_no) 
     END SUBROUTINE   
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -394,6 +449,7 @@ module hecras_IO
 
         ! Read the data into reach_data
         call read_reaches(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
+        call read_junctions(input_file_unit_no, reach_data, num_reaches)
         CLOSE(input_file_unit_no)
 
         ! Set downstream distances in reach_data, and initiate the stage-area curves
