@@ -4,7 +4,7 @@ The reaches (names + coordinates + cross-sections (cutlines + profile + manning)
 
 The main program is:
 
-0) read_file.f03
+0) main.f03
 
 Other code is:
 1) global_defs.f03 -- global constants (e.g real precision, character length, etc)
