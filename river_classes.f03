@@ -23,9 +23,6 @@ MODULE river_classes
         CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:, :) ! Names of reaches that join here
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
-        !CHARACTER(len=charlen):: reach_names(3) ! Names of reaches that join here
-        !CHARACTER(len=charlen):: reach_ends(3) ! Upstream or Downstream? for each reach
-        !REAL(dp) :: distances(3) ! Distance from the junction, for each reach
     END TYPE JUNCTION_BOUNDARY
 
     TYPE, EXTENDS(REACH_BOUNDARY):: PHYSICAL_BOUNDARY
@@ -77,6 +74,7 @@ MODULE river_classes
             TYPE IS (PHYSICAL_BOUNDARY)
                 print*, trim(generic_boundary%boundary_type),' ', &
                                             trim(generic_boundary%input_file)
+                print*, trim(generic_boundary%compute_method)
             TYPE IS (JUNCTION_BOUNDARY)
                 print*, '###############'
                 print*, 
