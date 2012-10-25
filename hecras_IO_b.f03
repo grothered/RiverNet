@@ -312,9 +312,8 @@ module hecras_IO
     END SUBROUTINE READ_REACHES
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE read_junctions(input_file_unit_no, network)
-        ! Read information from hecras file about junctions into reach data
+        ! Read information from hecras file about junctions into network structure
         INTEGER(ip), INTENT(IN):: input_file_unit_no
-        !TYPE(REACH_DATA_TYPE), INTENT(IN OUT):: reach_data(num_reaches)
         TYPE(network_data_type), INTENT(INOUT)::network
 
         INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0
@@ -339,6 +338,8 @@ module hecras_IO
             !print*, 'io_test=', io_test
             IF(io_test<0) EXIT
             junction_count=junction_count+1
+            
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Read the junction information           
             ! Looks like this:
             !
@@ -353,11 +354,12 @@ module hecras_IO
             !Junc L&A=0,0
             !Junc L&A=0,0
             !
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
             backspace(input_file_unit_no)
             ! Get junction name and description
             read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_name
             read(input_file_unit_no, "(11X, A30)", iostat=io_test) jb%junction_description
-            !print*, trim(jb%junction_name), trim(jb%junction_description)
             
             ! Get coordinates
             read(input_file_unit_no, "(21X, A64)", iostat=io_test) temp_char
@@ -405,7 +407,6 @@ module hecras_IO
             END DO  
                 jb%distances(join_count)=0._dp
 
-            !call jb%print()
             network%reach_junctions(junction_count)=jb
 
             ! Now loop over every reach, and add the boundary information as needed
