@@ -130,4 +130,27 @@ MODULE IO_util
             
     END SUBROUTINE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    FUNCTION count_line_matches(input_file_unit_no, pattern, format_string)
+        ! Count the number of lines in a file with unit number 'input_file_unit_no',
+        ! matching 'pattern'. File is read with 'format_string'
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
+        CHARACTER(*), INTENT(IN):: pattern, format_string
+        INTEGER(ip):: count_line_matches
+        ! Local variable
+        INTEGER(ip):: io_test
+
+        rewind(input_file_unit_no)
+        
+        io_test=0
+        count_line_matches=0
+        DO WHILE (io_test>=0)
+           call next_match(input_file_unit_no, pattern, io_test,format_string)
+
+           IF(io_test>=0) count_line_matches=count_line_matches+1  
+
+        END DO
+
+        rewind(input_file_unit_no)
+
+    END FUNCTION count_line_matches
 END MODULE IO_util

@@ -61,6 +61,16 @@ MODULE river_classes
         PROCEDURE:: get_downstream_dists_from_xsections => get_downstream_dists_from_xsections
 
     END TYPE REACH_DATA_TYPE
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    TYPE NETWORK_DATA_TYPE
+        ! River network, containing reaches and junctions, and ...
+        INTEGER(ip):: num_reaches
+        INTEGER(ip):: num_junctions
+        TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
+        TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
+
+    END TYPE NETWORK_DATA_TYPE
+
  
     CONTAINS
 

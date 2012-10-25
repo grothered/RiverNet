@@ -311,21 +311,26 @@ module hecras_IO
         rewind(input_file_unit_no)
     END SUBROUTINE READ_REACHES
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE read_junctions(input_file_unit_no, reach_data, num_reaches)
+    SUBROUTINE read_junctions(input_file_unit_no, network)
         ! Read information from hecras file about junctions into reach data
-        INTEGER(ip), INTENT(IN):: input_file_unit_no, num_reaches
-        TYPE(REACH_DATA_TYPE), INTENT(IN OUT):: reach_data(num_reaches)
+        INTEGER(ip), INTENT(IN):: input_file_unit_no
+        !TYPE(REACH_DATA_TYPE), INTENT(IN OUT):: reach_data(num_reaches)
+        TYPE(network_data_type), INTENT(INOUT)::network
 
-        INTEGER(ip):: io_test=0, i, join_count, j
+        INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0
         TYPE(JUNCTION_BOUNDARY):: jb
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
         REAL(dp):: temp_reals(veclen)
+        
 
+        ! Count the number of junctions, and allocate space for them
+        network%num_junctions= count_line_matches(input_file_unit_no, "Junct Name=", "(A11)")
+        ALLOCATE(network%reach_junctions(network%num_junctions))
+        
         ! Go to the start of the file
         rewind(input_file_unit_no)
 
-        !print*, 'Starting junction routine'
-
+        ! Loop over all the junctions
         jb%boundary_type='junction_boundary'
         DO WHILE (io_test>=0)
             ! Go to next line matching 'Junct Name='
@@ -333,6 +338,7 @@ module hecras_IO
             call next_match(input_file_unit_no, "Junct Name=", io_test, "(A11)")
             !print*, 'io_test=', io_test
             IF(io_test<0) EXIT
+            junction_count=junction_count+1
             ! Read the junction information           
             ! Looks like this:
             !
@@ -399,21 +405,22 @@ module hecras_IO
             END DO  
                 jb%distances(join_count)=0._dp
 
-            call jb%print()
+            !call jb%print()
+            network%reach_junctions(junction_count)=jb
 
             ! Now loop over every reach, and add the boundary information as needed
-            DO i=1,num_reaches
-                ! Loop over every connecting reach in the junction
-                DO j = 1, size(jb%reach_names(:,1))
-                    IF((jb%reach_names(j,1)==reach_data(i)%names(1)).AND.(jb%reach_names(j,2)==reach_data(i)%names(2)) ) THEN
-                        IF(jb%reach_ends(j) == 'Up') THEN
-                            allocate(reach_data(i)%Upstream_boundary, source=jb)
-                        ELSE
-                            allocate(reach_data(i)%Downstream_boundary, source=jb)
-                        END IF
-                    END IF
-                END DO
-            END DO
+            !DO i=1,num_reaches
+            !    ! Loop over every connecting reach in the junction
+            !    DO j = 1, size(jb%reach_names(:,1))
+            !        IF((jb%reach_names(j,1)==reach_data(i)%names(1)).AND.(jb%reach_names(j,2)==reach_data(i)%names(2)) ) THEN
+            !            IF(jb%reach_ends(j) == 'Up') THEN
+            !                allocate(reach_data(i)%Upstream_boundary, source=jb)
+            !            ELSE
+            !                allocate(reach_data(i)%Downstream_boundary, source=jb)
+            !            END IF
+            !        END IF
+            !    END DO
+            !END DO
 
             ! Clean up
             call jb%delete()
@@ -425,50 +432,53 @@ module hecras_IO
     END SUBROUTINE   
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE read_hecras_file(input_file,reach_data, print_output)
+    SUBROUTINE read_hecras_file(input_file,network, print_output)
         ! Read hecras data  from 'input_file' into the allocatable reach_data vector
         ! Optionally, print the data out
         CHARACTER(len=*), INTENT(IN):: input_file !, temp_char(100)
-        TYPE(reach_data_type), ALLOCATABLE, INTENT(INOUT):: reach_data(:)
+        !TYPE(reach_data_type), ALLOCATABLE, INTENT(INOUT):: reach_data(:)
+        TYPE(network_data_type), INTENT(INOUT):: network
         LOGICAL, INTENT(IN):: print_output
 
         ! Local variables
-        integer(ip):: num_reaches, input_file_unit_no
+        integer(ip):: input_file_unit_no
         integer:: i,j
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_file)
       
         ! Count the number of reaches
-        call count_reaches(input_file_unit_no, num_reaches) !-- this operates on the file
+        call count_reaches(input_file_unit_no, network%num_reaches) !-- this operates on the file
         ! Set up storage for reach information
-        ALLOCATE( reach_data(num_reaches) )
+        ALLOCATE( network%reach_data(network%num_reaches) )
 
         ! Count the number of xsections
-        call count_xsections(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
+        call count_xsections(input_file_unit_no, network%reach_data, network%num_reaches) !-- this operates on the file
 
         ! Read the data into reach_data
-        call read_reaches(input_file_unit_no, reach_data, num_reaches) !-- this operates on the file
-        call read_junctions(input_file_unit_no, reach_data, num_reaches)
+        call read_reaches(input_file_unit_no, network%reach_data, network%num_reaches) !-- this operates on the file
+
+        ! Read the junction data into the network
+        call read_junctions(input_file_unit_no, network)
         CLOSE(input_file_unit_no)
 
         ! Set downstream distances in reach_data, and initiate the stage-area curves
-        DO i=1,num_reaches
-            call reach_data(i)%get_downstream_dists_from_xsections()
+        DO i=1,network%num_reaches
+            call network%reach_data(i)%get_downstream_dists_from_xsections()
             ! Loop over every cross-section
-            DO j=1, size(reach_data(i)%xsects)
-                call reach_data(i)%xsects(j)%init_stage_area_curve()
+            DO j=1, size(network%reach_data(i)%xsects)
+                call network%reach_data(i)%xsects(j)%init_stage_area_curve()
             END DO
         END DO
 
         ! Print output
         IF(print_output) THEN
             ! FIXME: Could use this to make a 'print_reach' routine
-            DO i=1,num_reaches
-                call reach_data(i)%print()
+            DO i=1,network%num_reaches
+                call network%reach_data(i)%print()
             
-                DO j=1,size(reach_data(i)%xsects)
-                    call reach_data(i)%xsects(j)%print()
+                DO j=1,size(network%reach_data(i)%xsects)
+                    call network%reach_data(i)%xsects(j)%print()
                 END DO
             END DO
         END IF
