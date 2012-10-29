@@ -5,14 +5,22 @@ MODULE river_classes
     IMPLICIT NONE
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !
+    ! BOUNDARY CONDITIONS
+    !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     TYPE REACH_BOUNDARY
+        ! Generic type for boundaries of reaches. Specialisations of this are
+        ! junction boundary and physical boundary
         CHARACTER(len=charlen):: boundary_type ! junction or physical -- do I even need this?
         REAL(dp):: boundary_location(2) ! x-y data associated with the boundary
         contains
         PROCEDURE:: print => print_boundary
         PROCEDURE:: delete => deallocate_reach_boundary
     END TYPE REACH_BOUNDARY
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     TYPE, EXTENDS(REACH_BOUNDARY):: JUNCTION_BOUNDARY
         ! Store the flow variables at every cross-section that meets at this boundary
@@ -23,7 +31,15 @@ MODULE river_classes
         CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:, :) ! Names of reaches that join here
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
+
+        ! Hydrodynamic variables
+        REAL(dp), ALLOCATABLE:: Stage(:) ! Stage at each connection to the junction, for each reach
+        REAL(dp), ALLOCATABLE:: Area(:) ! Area at each connection to the junction, for each reach
+        REAL(dp), ALLOCATABLE:: Discharge(:) ! Discharge at each connection to the junction, for each reach
+
     END TYPE JUNCTION_BOUNDARY
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     TYPE, EXTENDS(REACH_BOUNDARY):: PHYSICAL_BOUNDARY
         ! Store a file with w,Q at the boundary, and a 'compute_method' to use if
@@ -36,15 +52,20 @@ MODULE river_classes
     END TYPE PHYSICAL_BOUNDARY
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !
+    !
+    !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     TYPE REACH_DATA_TYPE
         ! Type to hold reach information
         CHARACTER(len=charlen):: names(2) ! Hold an array of names associated with the reach. Hecras has 2
         
         REAL(dp), ALLOCATABLE:: coordinates(:,:) ! Centreline coordinates
         
-        ! Variables which will be dynamically allocated the boundary information
+        ! Boundary information
         CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
-        
+       
+        ! XSECTIONAL INFORMATION 
         INTEGER(ip):: xsect_count ! Number of xsections
         TYPE(XSECT_DATA_TYPE), ALLOCATABLE:: xsects(:) ! Hold array of xsection information
 
@@ -52,16 +73,23 @@ MODULE river_classes
         ! 1D flow variables
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), Area(:) 
-
-        ! Array of the downstream distances (DX) -- e.g. for the left & right banks + channel
+        ! Array of the downstream distances (DX) for the cross-sections -- e.g.
+        ! for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
+
 
         contains
         PROCEDURE:: print => print_reach
         PROCEDURE:: get_downstream_dists_from_xsections => get_downstream_dists_from_xsections
 
     END TYPE REACH_DATA_TYPE
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !
+    !
+    !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     TYPE NETWORK_DATA_TYPE
         ! River network, containing reaches and junctions, and ...
         INTEGER(ip):: num_reaches
@@ -69,8 +97,13 @@ MODULE river_classes
         TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
         TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
 
+        REAL(dp):: time ! Time (s) from arbitrary start time
+        REAL(dp):: dT ! Hydrodynamic time-step
+        REAL(dp):: CFL ! CFL number
+
     END TYPE NETWORK_DATA_TYPE
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
     CONTAINS
 
@@ -158,6 +191,9 @@ MODULE river_classes
                     DEALLOCATE(jb%reach_names)
                     DEALLOCATE(jb%reach_ends)
                     DEALLOCATE(jb%distances)
+                TYPE IS(PHYSICAL_BOUNDARY)
+                    print*, 'ERROR: Need to implement deallocation for physical boundary'
+                    stop
             END SELECT
     END SUBROUTINE deallocate_reach_boundary
 

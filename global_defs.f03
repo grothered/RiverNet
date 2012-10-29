@@ -11,4 +11,6 @@ MODULE global_defs
     ! rather than having magic numbers everywhere
     integer(ip), PARAMETER, PUBLIC:: veclen=100
 
+    real(dp), PARAMETER, PUBLIC:: gravity=9.8 ! m/s**2
+
 END MODULE global_defs

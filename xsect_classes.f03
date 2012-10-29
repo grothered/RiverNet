@@ -14,10 +14,9 @@ MODULE xsect_classes
         ! we last evaluated the relation. The idea is that we will often
         ! evaluate the function near to where we last evaluated it. Storing the 
         ! index can make the look-up fast.
-        REAL(dp), ALLOCATABLE:: Stage_Area(:,:)
+        REAL(dp), ALLOCATABLE:: x_y(:,:)
         INTEGER(ip):: last_search_index
         contains
-        !PROCEDURE:: init=> init_stage_area_relation ! Initialise (and/or update) the stage_area relation
         PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
     END TYPE    
 
@@ -39,17 +38,18 @@ MODULE xsect_classes
 
         ! 
         TYPE(MONOTONIC_RELATION):: stage_area_curve
+        TYPE(MONOTONIC_RELATION):: stage_width_curve
         
         contains
         PROCEDURE:: print => print_xsect
-        PROCEDURE:: init_stage_area_curve=>init_stage_area_curve
+        PROCEDURE:: init_stage_area_curve_and_stage_width_curve=>init_stage_area_curve_and_stage_width_curve
     END TYPE XSECT_DATA_TYPE
 
     contains
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE init_stage_area_curve(xsect)
+    SUBROUTINE init_stage_area_curve_and_stage_width_curve(xsect)
         !
         ! Compute data that will be used to interpolate stage from Area, and vice-versa
         !
@@ -60,7 +60,7 @@ MODULE xsect_classes
         INTEGER:: IPERM(size(xsect%yz(:,1))), ierr, i, j,unique_stage_count
 
         REAL(dp):: stage_area_protection=1000._dp ! FIXME: MAGIC NUMBER
-        REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher 
+        REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher, incremental_width 
 
         ! NOTE: PRESENTLY WE DO AN AREA COMPUTATION WHICH WORKS FOR XSECTIONS WITH
         ! INCREASING HORIZONTAL COORDINATE.
@@ -81,7 +81,7 @@ MODULE xsect_classes
         call DPSORT(xsect%yz(:,2), size(xsect%yz(:,2)), IPERM, 1, ierr) ! SLATEC ROUTINE
      
         IF(ierr/=0) THEN
-            PRINT*, "ERROR IN SORT when setting stage_area relation"
+            PRINT*, "ERROR IN SORT when setting monotonic relation"
             PRINT*, 'Xsect info is '
             call xsect%print()
             STOP
@@ -99,14 +99,17 @@ MODULE xsect_classes
             END IF
         END DO
 
-        ! Allocate stage_area_relation -- include space for one large stage at the end
-        ALLOCATE(xsect%stage_area_curve%Stage_Area(unique_stage_count+1,2))
+        ! Allocate monotonic relation -- include space for one large stage at the end
+        ALLOCATE(xsect%stage_area_curve%x_y(unique_stage_count+1,2))
+        ALLOCATE(xsect%stage_width_curve%x_y(unique_stage_count+1,2))
         xsect%stage_area_curve%last_search_index=1 ! Initialise this index
+        xsect%stage_width_curve%last_search_index=1 ! Initialise this index
 
         ! Step 3: Assign values
 
-        ! Set lowest Stage_area pair
-        xsect%stage_area_curve%Stage_Area(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
+        ! Set lowest x_y pair
+        xsect%stage_area_curve%x_y(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
+        xsect%stage_width_curve%x_y(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
 
         ! Assign stage values
         unique_stage_count=1
@@ -114,23 +117,27 @@ MODULE xsect_classes
             IF(xsect%yz(IPERM(i),2)/= xsect%yz(IPERM(i-1), 2)) THEN
                 ! Bed value is different to the previous one
                 unique_stage_count=unique_stage_count+1
-                xsect%stage_area_curve%Stage_Area(unique_stage_count,1) = xsect%yz(IPERM(i),2)
+                xsect%stage_area_curve%x_y(unique_stage_count,1) = xsect%yz(IPERM(i),2)
+                xsect%stage_width_curve%x_y(unique_stage_count,1) = xsect%yz(IPERM(i),2)
             END IF
         END DO
 
         ! Add an upper bound to the stage-area curve, so that extrapolation does not automatically fail
-        xsect%stage_area_curve%Stage_Area(unique_stage_count+1, 1) = & 
-                xsect%stage_area_curve%Stage_Area(unique_stage_count,1) + stage_area_protection
+        xsect%stage_area_curve%x_y(unique_stage_count+1, 1) = & 
+                xsect%stage_area_curve%x_y(unique_stage_count,1) + stage_area_protection
+        xsect%stage_width_curve%x_y(unique_stage_count+1, 1) = & 
+                xsect%stage_width_curve%x_y(unique_stage_count,1) + stage_area_protection
 
         ! Find incremental area
         DO i=2,unique_stage_count
             incremental_area=0._dp
+            incremental_width=0._dp
 
-            stg=xsect%stage_area_curve%Stage_Area(i,1) ! shorthand
+            stg=xsect%stage_area_curve%x_y(i,1) ! shorthand
 
             ! Loop over the width of the xsection
             DO j=1,size(xsect%yz(:,1))-1
-                ! Add the area beneath stage_i=Stage_Area(i,2)
+                ! Add the area beneath stage_i=x_y(i,2)
                 min_bed=min(xsect%yz(j,2), xsect%yz(j+1,2))
                 max_bed=max(xsect%yz(j,2), xsect%yz(j+1,2))
                 IF(stg> min_bed) THEN
@@ -139,24 +146,31 @@ MODULE xsect_classes
                         ! Full wetness: incremental_area += mean_depth*width
                         incremental_area=incremental_area + & 
                             (stg - 0.5*(max_bed+min_bed))*(xsect%yz(j+1,1) - xsect%yz(j,1))
+                        incremental_width=incremental_width + & 
+                            (xsect%yz(j+1,1) - xsect%yz(j,1))
                     ELSE 
                         ! Partial wetness: Compute triangular wetted area as 0.5 * height *base
                         incremental_area = incremental_area + &
                              0.5_dp*(stg - min_bed)* & 
                              (xsect%yz(j+1,1) - xsect%yz(j,1))*(stg- min_bed)/(max_bed-min_bed)
+                        incremental_width = incremental_width + &
+                             (xsect%yz(j+1,1) - xsect%yz(j,1))*(stg- min_bed)/(max_bed-min_bed)
                     END IF
                 END IF
             END DO
-            xsect%stage_area_curve%Stage_Area(i,2) = incremental_area 
+            xsect%stage_area_curve%x_y(i,2) = incremental_area 
+            xsect%stage_width_curve%x_y(i,2) = incremental_width 
         END DO
 
         ! Add upper bound value so that we can continue extrapolating area, as
         ! though there were vertical walls bounding the xsection
         j=size(xsect%yz(:,1))
-        xsect%stage_area_curve%Stage_Area(unique_stage_count+1,2) = &
+        xsect%stage_area_curve%x_y(unique_stage_count+1,2) = &
                     (xsect%yz(j,1)-xsect%yz(1,1))*stage_area_protection
+        xsect%stage_width_curve%x_y(unique_stage_count+1,2) = &
+                    (xsect%yz(j,1)-xsect%yz(1,1))
 
-    END SUBROUTINE init_stage_area_curve 
+    END SUBROUTINE init_stage_area_curve_and_stage_width_curve
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     FUNCTION stage_from_area(stage_area_curve, area, inverse)
@@ -187,10 +201,10 @@ MODULE xsect_classes
         ! (inverse=true)
         IF(inverse_b.eqv..FALSE.) THEN
             ! Default case
-            S_A=> stage_area_curve%Stage_Area(:,1:2) 
+            S_A=> stage_area_curve%x_y(:,1:2) 
         ELSE
             ! Interpolate Area given stage
-            S_A=> stage_area_curve%Stage_Area(:,2:1:-1) 
+            S_A=> stage_area_curve%x_y(:,2:1:-1) 
         END IF
         last_search_index=>stage_area_curve%last_search_index
 
@@ -263,14 +277,14 @@ MODULE xsect_classes
             print*, xsect%yz(k,1) , xsect%roughness(k,1)
         END DO
 
-        print*, 'Xsect Stage-Area curve'
-        DO k=1,size(xsect%stage_area_curve%Stage_Area(:,1))
-            print*, xsect%stage_area_curve%Stage_Area(k,:)
+        print*, 'Xsect Stage-Area-Width curve'
+        DO k=1,size(xsect%stage_area_curve%x_y(:,1))
+            print*, xsect%stage_area_curve%x_y(k,:), xsect%stage_width_curve%x_y(k,2)
         END DO
 
         ! Test of stage-area relation
         print*, 'Checking that stage-area curve interpolates okay...'
-        tmp=minval(xsect%stage_area_curve%Stage_Area(:,2))
+        tmp=minval(xsect%stage_area_curve%x_y(:,2))
         DO k=1, 10
             tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
             tmp2=xsect%stage_area_curve%eval(tmp) ! Stage when area = tmp

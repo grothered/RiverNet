@@ -468,7 +468,7 @@ module hecras_IO
             call network%reach_data(i)%get_downstream_dists_from_xsections()
             ! Loop over every cross-section
             DO j=1, size(network%reach_data(i)%xsects)
-                call network%reach_data(i)%xsects(j)%init_stage_area_curve()
+                call network%reach_data(i)%xsects(j)%init_stage_area_curve_and_stage_width_curve()
             END DO
         END DO
 
