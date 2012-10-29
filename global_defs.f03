@@ -11,6 +11,12 @@ MODULE global_defs
     ! rather than having magic numbers everywhere
     integer(ip), PARAMETER, PUBLIC:: veclen=100
 
-    real(dp), PARAMETER, PUBLIC:: gravity=9.8 ! m/s**2
+    real(dp), PARAMETER, PUBLIC:: gravity=9.8_dp ! m/s**2
+
+    real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=1000._dp
+
+    real(dp), PARAMETER, PUBLIC:: small_positive_real=1.0e-10_dp
+
+    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.0
 
 END MODULE global_defs

@@ -37,18 +37,30 @@ MODULE network_solver
         ! Loop over every xsection, and compute the new timestep from the CFL condition
         TYPE(network_data_type), INTENT(IN OUT):: network
 
+        ! Local vars
         INTEGER(ip):: i, j
-        REAL(dp):: dT, local_wavespeed, local_dt
+        REAL(dp):: dT, local_wavespeed, local_dt, vel, grav_wavespeed
 
-        dT = 1000._dp !network%dT
+        ! Predefine timestep
+        dT = maximum_allowed_timestep 
+
+        ! Loop over all xsections on all reaches and get the new timestep
         DO i=1,network%num_reaches
             DO j=1, network%reach_data(i)%xsect_count
-                local_wavespeed = abs(network%reach_data(i)%discharge(j)/network%reach_data(i)%area(j)) &
-                                    + (gravity*network%reach_data(i)%mean_depth(j))**0.5_dp
-                local_dt = downstream_distance/max(local_wavespeed, 1.0e-06)
+                ! 1D Velocity
+                vel=network%reach_data(i)%Discharge(j)/max(network%reach_data(i)%Area(j), small_positive_real)
+                ! Gravity wavespeed = sqrt( g * mean_depth)
+                grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/network%reach_data%Width(j))**0.5_dp
+                local_wavespeed = abs(vel) + grav_wavespeed
+
+                ! FIXME: Check interpretation of downstream distances -- perhaps incorrect
+                local_dt = network%reach(i)%downstream_distance(j,2)/max(local_wavespeed, small_positive_real)
+                local_dt = local_dt*network%CFL
                 dT = min(dT, local_dt)
             END DO
         END DO
+
+        network%dT=dT
 
     END SUBROUTINE update_timestep
 

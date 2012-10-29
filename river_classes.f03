@@ -72,7 +72,7 @@ MODULE river_classes
         !
         ! 1D flow variables
         !
-        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), Area(:) 
+        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), Area(:), Width(:) 
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
@@ -99,7 +99,7 @@ MODULE river_classes
 
         REAL(dp):: time ! Time (s) from arbitrary start time
         REAL(dp):: dT ! Hydrodynamic time-step
-        REAL(dp):: CFL ! CFL number
+        REAL(dp):: CFL=cfl_1d_solver ! CFL number
 
     END TYPE NETWORK_DATA_TYPE
 

@@ -27,7 +27,7 @@ MODULE xsect_classes
 
     END TYPE STATION_DATA_TYPE
 
-    !
+    ! Specialization for 'typical' cross-sections
     
     TYPE, EXTENDS(STATION_DATA_TYPE):: XSECT_DATA_TYPE
         ! Type for xsectional data
