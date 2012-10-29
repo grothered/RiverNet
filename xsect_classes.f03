@@ -36,7 +36,11 @@ MODULE xsect_classes
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 
         REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
 
-        ! 
+        !  Add in relations to compute width/area from stage, and vice versa.
+        ! FIXME: This is inefficient, in that it stores stage twice. Could have
+        ! a stage_area_width relation, but more work to generalise
+        ! FIXME: Really, we will probably want to generalise this to having stage-"1D roughness",
+        ! and other things. 
         TYPE(MONOTONIC_RELATION):: stage_area_curve
         TYPE(MONOTONIC_RELATION):: stage_width_curve
         
@@ -168,7 +172,7 @@ MODULE xsect_classes
         xsect%stage_area_curve%x_y(unique_stage_count+1,2) = &
                     (xsect%yz(j,1)-xsect%yz(1,1))*stage_area_protection
         xsect%stage_width_curve%x_y(unique_stage_count+1,2) = &
-                    (xsect%yz(j,1)-xsect%yz(1,1))
+                    max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_width_curve%x_y(unique_stage_count,2))
 
     END SUBROUTINE init_stage_area_curve_and_stage_width_curve
 
