@@ -154,6 +154,10 @@ MODULE river_classes
         print*, 'Downstream distances:'
         DO j=1,size(reach%downstream_dists(:,1))
             print*, '   ', reach%downstream_dists(j,:)
+            IF(minval(reach%downstream_dists(j,:)) < 0._dp) THEN
+                print*, 'ERROR: Negative downstream distance'
+                stop
+            END IF
         END DO
 
         ! Print coordinates

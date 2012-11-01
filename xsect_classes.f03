@@ -183,7 +183,8 @@ MODULE xsect_classes
         ! Compute the value of 'output_varname' associated with the
         ! 'predictor' value of 'predictor_varname' in a ONE_D_RELATION 
         ! 
-        ! E.G. stage_from_area(stage_etc_curve, 1.0, 'stage', 'area') =
+        ! E.G. 
+        ! eval_one_D_relation(stage_etc_curve, 1.0, 'stage', 'area') =
         ! [ the value of 'area' associated with a 'stage' of 1.0]
 
         CLASS(ONE_D_RELATION), INTENT(IN), target:: stage_etc_curve
@@ -298,7 +299,7 @@ MODULE xsect_classes
         ! Test of stage-area relation
         print*, 'Checking that stage-area curve interpolates okay...'
         tmp=minval(xsect%stage_etc_curve%x_y(:,1))
-        DO k=1, 10
+        DO k=1, 5
             tmp=tmp+(k-1)*1.0_dp ! Hypothetical stage
             tmp3=xsect%stage_etc_curve%eval(tmp, 'stage', 'area') ! area when stage = tmp
             tmp2=xsect%stage_etc_curve%eval(tmp3, 'area', 'stage') ! Should = tmp
