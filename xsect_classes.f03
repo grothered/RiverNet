@@ -270,7 +270,7 @@ MODULE xsect_classes
     SUBROUTINE print_xsect(xsect)
         CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsect
         INTEGER:: k
-        REAL(dp):: tmp, tmp2, tmp3
+        REAL(dp):: tmp, tmp2, tmp3, tmp4
 
         print*, trim(xsect%myname)
         print*, 'Downstream distances are ', xsect%downstream_dists
@@ -297,16 +297,18 @@ MODULE xsect_classes
 
         ! Test of stage-area relation
         print*, 'Checking that stage-area curve interpolates okay...'
-        tmp=minval(xsect%stage_etc_curve%x_y(:,2))
+        tmp=minval(xsect%stage_etc_curve%x_y(:,1))
         DO k=1, 10
-            tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
-            tmp2=xsect%stage_etc_curve%eval(tmp, 'area', 'stage') ! Stage when area = tmp
-            tmp3=xsect%stage_etc_curve%eval(tmp2, 'stage', 'area') ! Should = tmp
+            tmp=tmp+(k-1)*1.0_dp ! Hypothetical stage
+            tmp3=xsect%stage_etc_curve%eval(tmp, 'stage', 'area') ! area when stage = tmp
+            tmp2=xsect%stage_etc_curve%eval(tmp3, 'area', 'stage') ! Should = tmp
+            tmp4=xsect%stage_etc_curve%eval(tmp3, 'area', 'width')
+            print*, 'When stage = ', tmp, ' area = ', tmp3, ' width = ', tmp4
 
             ! TEST of Stage-area relation
-            IF(abs(tmp3 - tmp) > 1.0e-8_dp) THEN
+            IF(abs(tmp2 - tmp) > 1.0e-8_dp) THEN
                 print*, 'ERROR: Seems there is a problem on this stage-area curve'
-                print*, 'Area= ', tmp, ' Stage= ', tmp2, ' Inverted Area ', tmp3, ' Difference ',tmp-tmp3
+                print*, 'Stage= ', tmp, ' Area= ', tmp3, ' Inverted stage ', tmp2, ' Difference ',tmp-tmp2
                 stop
             END IF
             
