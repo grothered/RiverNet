@@ -4,8 +4,8 @@ MODULE xsect_classes
     IMPLICIT NONE
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    TYPE MULTIVARIATE_RELATION
-        ! Holds variables with a relation (e.g. Stage & Area & Width & 1D roughness)
+    TYPE ONE_D_RELATION
+        ! Holds several variables with a one-dimensional relation (e.g. Stage & Area & Width & 1D roughness)
         ! These can be stored in an array, with each row of the array holding the value of
         ! Stage/Area/Width/1D roughness etc which occur simultaneously in a given cross-section
         !
@@ -22,7 +22,7 @@ MODULE xsect_classes
         CHARACTER(len=charlen), ALLOCATABLE:: varnames(:)
 
         contains
-        PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
+        PROCEDURE:: eval=> eval_one_D_relation 
     END TYPE    
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -42,7 +42,7 @@ MODULE xsect_classes
         REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
 
         !  Add in relations to compute width/area/roughness from stage, and sometimes vice versa.
-        TYPE(MULTIVARIATE_RELATION):: stage_etc_curve !  
+        TYPE(ONE_D_RELATION):: stage_etc_curve   
         
         contains
         PROCEDURE:: print => print_xsect
@@ -81,7 +81,9 @@ MODULE xsect_classes
         ! to the stage_etc_curve
        
         ALLOCATE(xsect%stage_etc_curve%varnames(num_vars))
-        xsect%stage_etc_curve%varnames=(/  'stage', 'area', 'width' /)
+        xsect%stage_etc_curve%varnames(1)='stage'
+        xsect%stage_etc_curve%varnames(2)='area'
+        xsect%stage_etc_curve%varnames(3)='width'
 
         ! Step 1: Compute the indices of the sorted bed elevations.
         ! yz(IPERM, 2) is non-decreasing
@@ -106,14 +108,14 @@ MODULE xsect_classes
             END IF
         END DO
 
-        ! Allocate multivariate relation -- include space for one large stage at the end
+        ! Allocate 1D_relation -- include space for one large stage at the end
         ALLOCATE(xsect%stage_etc_curve%x_y(unique_stage_count+1,num_vars))
         xsect%stage_etc_curve%last_search_index=1 ! Initialise this index
 
         ! Step 3: Assign values
 
         ! Set lowest x_y pair
-        xsect%stage_etc_curve%x_y(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp, 0._dp /) 
+        xsect%stage_etc_curve%x_y(1,:) =(/ minval(xsect%yz(:,2)), 0._dp, 0._dp /) 
 
         ! Assign stage values
         unique_stage_count=1
@@ -129,7 +131,7 @@ MODULE xsect_classes
         xsect%stage_etc_curve%x_y(unique_stage_count+1, 1) = & 
                 xsect%stage_etc_curve%x_y(unique_stage_count,1) + stage_protection
 
-        ! Find incremental area
+        ! Find incremental area / width/ other variable
         DO i=2,unique_stage_count
             incremental_area=0._dp
             incremental_width=0._dp
@@ -169,43 +171,54 @@ MODULE xsect_classes
         j=size(xsect%yz(:,1))
         xsect%stage_etc_curve%x_y(unique_stage_count+1,2) = &
                     (xsect%yz(j,1)-xsect%yz(1,1))*stage_protection
-        xsect%stage_etc_curve%x_y(unique_stage_count+1,2) = &
-                    max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_etc_curve%x_y(unique_stage_count,2))
+        xsect%stage_etc_curve%x_y(unique_stage_count+1,3) = &
+                    max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_etc_curve%x_y(unique_stage_count,3))
 
     END SUBROUTINE init_stage_etc_curve
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    FUNCTION stage_from_area(stage_etc_curve, predictor, predictor_varname, output_varname)
-        ! Interpolation function for stage_etc_curves
+    FUNCTION eval_one_D_relation(stage_etc_curve, predictor, predictor_varname, output_varname)
+        ! Interpolation function for one_D_relation 
         !
         ! Compute the value of 'output_varname' associated with the
-        ! 'predictor' value of 'predictor_varname' in a stage_etc_curve, 
+        ! 'predictor' value of 'predictor_varname' in a ONE_D_RELATION 
         ! 
         ! E.G. stage_from_area(stage_etc_curve, 1.0, 'stage', 'area') =
         ! [ the value of 'area' associated with a 'stage' of 1.0]
 
-        CLASS(MULTIVARIATE_RELATION), INTENT(IN), target:: stage_etc_curve
+        CLASS(ONE_D_RELATION), INTENT(IN), target:: stage_etc_curve
         REAL(dp), INTENT(IN):: predictor
-        CHARACTER(len=charlen), INTENT(IN):: predictor_varname, output_varname
-        REAL(dp):: stage_from_area
+        CHARACTER(*), INTENT(IN):: predictor_varname, output_varname
+        REAL(dp):: eval_one_d_relation
 
         ! Local variables
         INTEGER(ip):: i, lower_ind, l, predictor_index, output_index
         REAL(dp):: weight
         INTEGER(ip), pointer:: last_search_index
-        REAL(dp), pointer:: S_A(:,:)
+        REAL(dp):: S_A(size(stage_etc_curve%x_y(:,1)),2)
         LOGICAL:: inverse_b
 
         ! Firstly, set up stage_area relation, depending on whether or not we
         ! are interpolating stage from area (default, inverse=false), or area from stage
         ! (inverse=true)
+        predictor_index=-1
+        output_index=-1
         DO i=1,size(stage_etc_curve%varnames)
             IF(stage_etc_curve%varnames(i).EQ. predictor_varname) predictor_index=i
             IF(stage_etc_curve%varnames(i).EQ. output_varname) output_index=i
         END DO
 
-        ! Store relevant variables in a 2 column array with (output, predictor)
-        S_A=> stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
+        IF( (predictor_index<1).OR.(output_index<1)) THEN
+            print*, 'ERROR in eval_one_d_relation:'
+            print*, 'Cannot find one or both of predictor varname ', predictor_varname
+            print*, ' and output varname ', output_varname
+            print*, ' in stage_etc_curve%varnames: ', stage_etc_curve%varnames
+            stop
+        END IF
+
+        ! Store relevant variables in a 2 column array: (output, predictor)
+        !S_A=> stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
+        S_A= stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
         last_search_index=>stage_etc_curve%last_search_index
 
         ! Logical checks / quick exit
@@ -248,9 +261,9 @@ MODULE xsect_classes
         last_search_index=lower_ind ! Update last_search_index
         ! Weighted average
         weight=(S_A(lower_ind+1,2)-predictor)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
-        stage_from_area = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
+        eval_one_d_relation = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
 
-    END FUNCTION stage_from_area
+    END FUNCTION eval_one_D_relation
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -278,17 +291,17 @@ MODULE xsect_classes
         END DO
 
         print*, 'Xsect Stage-Area-Width curve'
-        DO k=1,size(xsect%stage_area_curve%x_y(:,1))
-            print*, xsect%stage_area_curve%x_y(k,:), xsect%stage_width_curve%x_y(k,2)
+        DO k=1,size(xsect%stage_etc_curve%x_y(:,1))
+            print*, xsect%stage_etc_curve%x_y(k,:)
         END DO
 
         ! Test of stage-area relation
         print*, 'Checking that stage-area curve interpolates okay...'
-        tmp=minval(xsect%stage_area_curve%x_y(:,2))
+        tmp=minval(xsect%stage_etc_curve%x_y(:,2))
         DO k=1, 10
             tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
-            tmp2=xsect%stage_area_curve%eval(tmp) ! Stage when area = tmp
-            tmp3=xsect%stage_area_curve%eval(tmp2,inverse=.TRUE.) ! Should = tmp
+            tmp2=xsect%stage_etc_curve%eval(tmp, 'area', 'stage') ! Stage when area = tmp
+            tmp3=xsect%stage_etc_curve%eval(tmp2, 'stage', 'area') ! Should = tmp
 
             ! TEST of Stage-area relation
             IF(abs(tmp3 - tmp) > 1.0e-8_dp) THEN
