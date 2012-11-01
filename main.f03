@@ -16,5 +16,5 @@ PROGRAM main
     ! Set the boundary conditions 
 
     ! Run the simulation
-
+    !call evolve_hydraulics(network)
 END PROGRAM
