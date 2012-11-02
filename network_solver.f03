@@ -80,13 +80,8 @@ MODULE network_solver
         ! Use channel delX as temporary delX here
         delX = reach_data%downstream_distances(:,2)
         ! Compute Area predictor
-        DO i=2,n-1
-            Area_pred(i) = reach_data%Area(i) - & 
-                           dT/delX(i+1)*(reach_data%Discharge(i+1)-reach_data%Discharge(i))
-        END DO
-        ! FIXME
-        ! Boundary conditions
-        !
+        Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX(2:n)*&
+                          (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
         DO i=1,n
@@ -98,11 +93,9 @@ MODULE network_solver
             END IF
         END DO
 
-        DO i=2,n-1
-            ! FIXME: Add in inuc type term here
-            convective_flux(i) = reach_data%Discharge(i)**2 / reach_data%Area(i) *dry_flag(i)
-            slope(i) = (reach_data%Stage(i+1) - reach_data%Stage(i))/delX(i+1)*dry_flag(i)
-        END DO
+        convective_flux(1:n-1) = reach_data%Discharge(1:n-1)**2 / reach_data%Area(1:n-1) * dry_flag(1:n-1)  
+        slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(2:n)*dry_flag(1:n-1)
+
         ! FIXME
         ! Boundary Conditions
         !
