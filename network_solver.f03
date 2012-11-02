@@ -2,12 +2,14 @@ MODULE network_solver
     ! Routines to solve the St-Venant Equations with Junctions in a river network
     USE global_defs
     USE river_classes
-    
+   
+    IMPLICIT NONE 
     contains
 
     SUBROUTINE evolve_hydraulics(network)
         ! Evolve the hydraulics in the network
         TYPE(network_data_type), INTENT(IN OUT):: network
+        INTEGER:: i
 
         ! Update the timestep dT
         CALL update_timestep(network)
@@ -15,15 +17,15 @@ MODULE network_solver
         ! Update the flow Stage, Area + Discharge in reaches + junctions
 
         DO i=1,network%num_reaches
-            call one_mccormack_step(network%reach_data(i), network%time, dT, ...)
+            call one_mccormack_step(network%reach_data(i), network%time, network%dT)
         END DO
 
-        DO i=1,num_junctions
+        DO i=1,network%num_junctions
             call update_junction_values(network%reach_junctions(i))
         END DO
 
         ! Advance time
-        network%time=network%time+dT
+        network%time=network%time+network%dT
         
         ! New boundary values at new time 
         CALL update_boundaries(network)
@@ -50,11 +52,11 @@ MODULE network_solver
                 ! 1D Velocity
                 vel=network%reach_data(i)%Discharge(j)/max(network%reach_data(i)%Area(j), small_positive_real)
                 ! Gravity wavespeed = sqrt( g * mean_depth)
-                grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/network%reach_data%Width(j))**0.5_dp
+                grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/network%reach_data(i)%Width(j))**0.5_dp
                 local_wavespeed = abs(vel) + grav_wavespeed
 
                 ! FIXME: Check interpretation of downstream distances -- perhaps incorrect
-                local_dt = network%reach(i)%downstream_distance(j,2)/max(local_wavespeed, small_positive_real)
+                local_dt = network%reach_data(i)%downstream_dists(j,2)/max(local_wavespeed, small_positive_real)
                 local_dt = local_dt*network%CFL
                 dT = min(dT, local_dt)
             END DO
@@ -71,27 +73,22 @@ MODULE network_solver
         REAL(dp), INTENT(IN):: time, dT
 
         ! Local vars
-        INTEGER(ip):: n=reach_data%xsect_count, i
-        REAL(dp):: delX(n), dry_flag(n)
-        REAL(dp):: Area_pred(n), Stage_pred(n), Q_pred(n)
-        REAL(dp):: Area_cor(n), Stage_cor(n), Q_cor(n)
-        REAL(dp):: mean_depth, convective_flux(n), slope(n)
+        INTEGER(ip)::i, n
+        REAL(dp):: delX(reach_data%xsect_count), dry_flag(reach_data%xsect_count)
+        REAL(dp):: Area_pred(reach_data%xsect_count), Stage_pred(reach_data%xsect_count), Q_pred(reach_data%xsect_count)
+        REAL(dp):: Area_cor(reach_data%xsect_count), Stage_cor(reach_data%xsect_count), Q_cor(reach_data%xsect_count)
+        REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
+
+        n=reach_data%xsect_count
 
         ! Use channel delX as temporary delX here
-        delX = reach_data%downstream_distances(:,2)
+        delX = reach_data%downstream_dists(:,2)
         ! Compute Area predictor
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX(2:n)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
-        DO i=1,n
-            mean_depth=reach_data%Area(i)/reach_data%Width(i)
-            IF( mean_depth < reach_data%wet_dry_depth) THEN
-                dry_flag(i)=0.
-            ELSE
-                dry_flag(i)=1.
-            END IF
-        END DO
+        dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width >= reach_data%wet_dry_depth)
 
         convective_flux(1:n-1) = reach_data%Discharge(1:n-1)**2 / reach_data%Area(1:n-1) * dry_flag(1:n-1)  
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(2:n)*dry_flag(1:n-1)
@@ -101,17 +98,18 @@ MODULE network_solver
         !
     
         ! Compute Q predictor
-        DO i=2,n-1
-            Qpred(i) = reach_data%Discharge(i) - dT/delX(i+1)* &
-                       ( convective_flux(i+1) - convective_flux(i) + &
-                         gravity*reach_data%Area(i)*slope(i) )
-        END DO
-        ! IMPLICIT FRICTION
+        Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
+                       dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+                       -dT*gravity*0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n))*slope(1:n-1) 
+
+        ! FIXME:
         ! BOUNDARY CONDITIONS
+
+        ! IMPLICIT FRICTION
 
         ! Back-calculate stage
         DO i=1,n
-            Stage_pred(i) = reach_data%xsect(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
+            Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
         END DO
 
 
