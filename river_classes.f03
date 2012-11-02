@@ -79,6 +79,9 @@ MODULE river_classes
         ! for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
 
+        ! Depth at which we set velocity/fluxes to zero to prevent bad solver behaviour
+        REAL(dp):: wet_dry_depth=1.0e-03
+
 
         contains
         PROCEDURE:: print => print_reach

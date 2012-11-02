@@ -2,7 +2,7 @@ MODULE network_solver
     ! Routines to solve the St-Venant Equations with Junctions in a river network
     USE global_defs
     USE river_classes
-
+    
     contains
 
     SUBROUTINE evolve_hydraulics(network)
@@ -64,4 +64,64 @@ MODULE network_solver
 
     END SUBROUTINE update_timestep
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE one_mccormack_step(reach_data, time, dT)
+        ! Mc-Cormack type flow solver with tweaks
+        TYPE(reach_data_type), INTENT(INOUT):: reach_data
+        REAL(dp), INTENT(IN):: time, dT
+
+        ! Local vars
+        INTEGER(ip):: n=reach_data%xsect_count, i
+        REAL(dp):: delX(n), dry_flag(n)
+        REAL(dp):: Area_pred(n), Stage_pred(n), Q_pred(n)
+        REAL(dp):: Area_cor(n), Stage_cor(n), Q_cor(n)
+        REAL(dp):: mean_depth
+
+        ! Use channel delX as temporary delX here
+        delX = reach_data%downstream_distances(:,2)
+        ! Compute Area predictor
+        DO i=2,n-1
+            Area_pred(i) = reach_data%Area(i) - & 
+                           dT/delX(i+1)*(reach_data%Discharge(i+1)-reach_data%Discharge(i))
+        END DO
+        ! FIXME
+        ! Boundary conditions
+        !
+
+        ! Wet-dry treatment
+        DO i=1,n
+            mean_depth=reach_data%Area(i)/reach_data%Width(i)
+            IF( mean_depth < reach_data%wet_dry_depth) THEN
+                dry_flag(i)=0.
+            ELSE
+                dry_flag(i)=1.
+            END IF
+        END DO
+
+
+        ! Compute Q predictor
+        DO i=2,n-1
+
+        END DO
+
+        ! Back-calculate stage
+        DO i=1,n
+            Stage_pred(i) = reach_data%xsect(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
+        END DO
+
+
+
+        ! Compute Area corrector
+
+        ! Compute Q corrector
+
+        ! Back-calculate Stage
+
+
+        ! Compute 'final' update
+
+        ! Compute 'conservative' discharge?
+
+
+    END SUBROUTINE one_mccormack_step
 END MODULE network_solver
