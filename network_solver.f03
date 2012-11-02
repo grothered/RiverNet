@@ -75,7 +75,7 @@ MODULE network_solver
         REAL(dp):: delX(n), dry_flag(n)
         REAL(dp):: Area_pred(n), Stage_pred(n), Q_pred(n)
         REAL(dp):: Area_cor(n), Stage_cor(n), Q_cor(n)
-        REAL(dp):: mean_depth
+        REAL(dp):: mean_depth, convective_flux(n), slope(n)
 
         ! Use channel delX as temporary delX here
         delX = reach_data%downstream_distances(:,2)
@@ -88,7 +88,7 @@ MODULE network_solver
         ! Boundary conditions
         !
 
-        ! Wet-dry treatment
+        ! Wet-dry flag
         DO i=1,n
             mean_depth=reach_data%Area(i)/reach_data%Width(i)
             IF( mean_depth < reach_data%wet_dry_depth) THEN
@@ -98,11 +98,23 @@ MODULE network_solver
             END IF
         END DO
 
-
+        DO i=2,n-1
+            ! FIXME: Add in inuc type term here
+            convective_flux(i) = reach_data%Discharge(i)**2 / reach_data%Area(i) *dry_flag(i)
+            slope(i) = (reach_data%Stage(i+1) - reach_data%Stage(i))/delX(i+1)*dry_flag(i)
+        END DO
+        ! FIXME
+        ! Boundary Conditions
+        !
+    
         ! Compute Q predictor
         DO i=2,n-1
-
+            Qpred(i) = reach_data%Discharge(i) - dT/delX(i+1)* &
+                       ( convective_flux(i+1) - convective_flux(i) + &
+                         gravity*reach_data%Area(i)*slope(i) )
         END DO
+        ! IMPLICIT FRICTION
+        ! BOUNDARY CONDITIONS
 
         ! Back-calculate stage
         DO i=1,n
