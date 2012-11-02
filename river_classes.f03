@@ -71,6 +71,8 @@ MODULE river_classes
 
         !
         ! 1D flow variables
+        ! Length of these can be equal (number of cross-sections+2)
+        ! So we can store the boundary conditions here as well, and implement them smoothly
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
                                 Area(:), Width(:), &

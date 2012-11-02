@@ -68,7 +68,10 @@ MODULE network_solver
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE one_mccormack_step(reach_data, time, dT)
+        !
         ! Mc-Cormack type flow solver with tweaks
+        !
+
         TYPE(reach_data_type), INTENT(INOUT):: reach_data
         REAL(dp), INTENT(IN):: time, dT
 
@@ -78,6 +81,8 @@ MODULE network_solver
         REAL(dp):: Area_pred(reach_data%xsect_count), Stage_pred(reach_data%xsect_count), Q_pred(reach_data%xsect_count)
         REAL(dp):: Area_cor(reach_data%xsect_count), Stage_cor(reach_data%xsect_count), Q_cor(reach_data%xsect_count)
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
+        REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
+        REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count)
 
         n=reach_data%xsect_count
 
@@ -88,41 +93,75 @@ MODULE network_solver
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
-        dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width >= reach_data%wet_dry_depth)
+        dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
 
-        convective_flux(1:n-1) = reach_data%Discharge(1:n-1)**2 / reach_data%Area(1:n-1) * dry_flag(1:n-1)  
+        convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag  
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(2:n)*dry_flag(1:n-1)
 
-        ! FIXME
-        ! Boundary Conditions
-        !
-    
-        ! Compute Q predictor
+        ! Compute Q predictor with implicit friction
+        Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
+        ! Convective + gravity terms
         Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
                        dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
-                       -dT*gravity*0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n))*slope(1:n-1) 
+                       -dT*gravity*Af(1:n-1)*slope(1:n-1) 
 
-        ! FIXME:
-        ! BOUNDARY CONDITIONS
+        ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q*abs(Q)
+        drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2._dp))*reach_data%Drag_1D(1:n-1) )
+        DO i=1,n-1
+             IF(drag_factor(i).ne.0._dp) THEN
+                Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
+             ELSE
+                ! Friction is negligible
+             END IF
+        END DO
 
-        ! IMPLICIT FRICTION
 
         ! Back-calculate stage
         DO i=1,n
             Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
+            Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
+        END DO
+
+
+        ! Compute Area corrector
+        Area_cor(2:n) = reach_data%Area(2:n) -dT/delX(2:n)*&
+                          (Q_pred(2:n) - Q_pred(1:n-1))
+
+        ! Wet-dry flag
+        dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
+
+        convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
+        slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(2:n)*dry_flag(2:n)
+        
+        ! Compute Q corrector with implicit friction
+        Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
+        ! Convective + gravity terms
+        Q_cor(2:n) = reach_data%Discharge(2:n) -  &
+                       dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+                       -dT*gravity*Ab(2:n)*slope(2:n) 
+        
+        ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q*abs(Q)
+        drag_factor(2:n)=(gravity*Af(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*reach_data%Drag_1D(2:n) )
+        DO i=2,n
+             IF(drag_factor(i).ne.0._dp) THEN
+                Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
+             ELSE
+                ! Friction is negligible
+             END IF
         END DO
 
 
 
-        ! Compute Area corrector
-
-        ! Compute Q corrector
-
-        ! Back-calculate Stage
-
-
         ! Compute 'final' update
+        reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
+        reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
 
+        ! Back-calculate Stage, width
+        DO i=2,n-1
+            reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')
+            reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
+        END DO
+        
         ! Compute 'conservative' discharge?
 
 
