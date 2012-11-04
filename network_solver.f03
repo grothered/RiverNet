@@ -72,7 +72,9 @@ MODULE network_solver
         ! Mc-Cormack type flow solver with tweaks
         !
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        ! EXACT DISCHARGE BOUNDARIES
+        ! Thoughts on imposing different types of boundary conditions
+        !###
+        !! EXACT DISCHARGE BOUNDARIES
         !
         ! Area(t+1,i) = Area_pred+Area_cor =Area(t) -dT/dX*( Q(t,i+1) -Q(t,i) + Qpred(*,i) - Qpred(*,i-1) )
         !
@@ -89,7 +91,7 @@ MODULE network_solver
         !
         ! Subcritical Upstream -- set Apred, Qpred to ensure conservation?
         ! Qpred(*,n) = Desired boundary flows at (t+1) 
-        ! Apred(*,n): 0.5*(Apred(*,1) + Acor(*,1)) = -dT/dX*(Qboundary(t+1/2, n+1/2) - Qcon(t+1/2, n-1/2))
+        ! Apred(*,n): 0.5*(Apred(*,n) + Acor(*,n)) = -dT/dX*(Qboundary(t+1/2, n+1/2) - Qcon(t+1/2, n-1/2))
         !
         ! Problem: We don't know Acor when evaluating Apred -- but we can
         !          calculate it anyway ahead of time, straightforward
@@ -98,7 +100,9 @@ MODULE network_solver
         ! Acor1: 0.5*(Acor(*,1) +Apred(*,1)) = -dT/dX*(Qcon(t+1/2, 1+1/2) -Qboundary(t+1,1/2))
         ! Qcor1: Qcor(*,1) = Qboundary(t+1,1/2) 
         !
-        ! AREA/STAGE BOUNDARIES
+        !###
+        !! AREA/STAGE BOUNDARIES
+        ! Can compute Area from stage given the stage_etc_curve
         !
         ! Subcritical upstream
         ! A_pred(*,n) = Desired Area
@@ -108,12 +112,13 @@ MODULE network_solver
         ! A_cor(*,1) = Desired area
         ! Qcor(*, 1) = Whatever -- first order velocity extrapolation / flux extrapolation / zero gradient flux / ...
         !
+        !###
+        !! SUPER CRITICAL BOUNDARIES
+        !   Here, we might just want to force the values at the boundaries.
+        !   Inflow: A(t+1) = Desired Area at t+1?
+        !           Q(t+1) = Desired discharge at t+1?
         !
-        ! SUPER CRITICAL BOUNDARIES
-        !   Inflow: A_pred = Desired Area at t+1?
-        !                  Q_pred = Desired discharge at t+1
-        !
-        !   Outflow: First order / zero order extrapolation
+        !   Outflow: First order / zero order extrapolation ??
         ! 
         ! Will that do it?
         !

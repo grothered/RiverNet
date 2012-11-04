@@ -1,6 +1,7 @@
 MODULE river_classes
 ! Classes for river type things
     USE global_defs
+    USE one_d_relation_class
     USE xsect_classes
     IMPLICIT NONE
 
@@ -48,7 +49,11 @@ MODULE river_classes
         ! force the water surface elevation, or the discharge, or some combination of them,
         ! but it is incorrect to force both w and Q]
         CHARACTER(len=charlen):: input_file ! File containing t, w and Q
+
+        ! 'Always_discharge', 'Always_stage'
         CHARACTER(len=charlen):: compute_method ! 'Always_w, Always_Q, Incoming_characteristic,...'
+
+        TYPE(ONE_D_RELATION):: Boundary_t_w_Q ! One-d-relation which will hold t, w, and Q timeseries for the boundary
     END TYPE PHYSICAL_BOUNDARY
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
