@@ -71,23 +71,29 @@ MODULE network_solver
         !
         ! Mc-Cormack type flow solver with tweaks
         !
+        ! FIXME: Consider re-schematising: Volumes occur between x-sections,
+        ! 'conservative' discharge occurs at cross-sections. This might make it
+        ! easier to impose boundary conditions, and to avoid conceptually 'extending' the
+        ! reach beyond the bounds of the first and last xsection
+        !
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! Thoughts on imposing different types of boundary conditions
         !###
         !! EXACT DISCHARGE BOUNDARIES
         !
-        ! Area(t+1,i) = Area_pred+Area_cor =Area(t) -dT/dX*( Q(t,i+1) -Q(t,i) + Qpred(*,i) - Qpred(*,i-1) )
+        ! Area(t+1,i) = Area_pred+Area_cor =Area(t) -dT*[ (Q(t,i+1) -Q(t,i))/(dX) + (Qpred(*,i) - Qpred(*,i-1) )/(dX) ]
         !
-        ! So, we can define the 'conservative' variant of the discharge is:
+        ! So, we can define the 'conservative' variant of the discharge as:
         !
         ! Qcon(t+1/2,i+1/2) := 0.5*(Q(t,i+1) + Q_pred(*,i))
         !
         ! which is 'conservative in the sense that it exactly satisfies:
         !
-        ! A(t+1, i)-A(t, i) = -dT/dX* ( Qcon(t+1/2,i+1/2) - Qcon(t+1/2,i-1/2) )
+        ! dX*(A(t+1, i)-A(t, i)) = -dT * ( Qcon(t+1/2,i+1/2) - Qcon(t+1/2,i-1/2) )
         !
         ! We can impose exact discharge boundary conditions by ensuring that
         ! the values of Qcon at the discharge boundaries (n+1/2 & 1/2) attain the values that we want
+        !
         !
         ! Subcritical Upstream -- set Apred, Qpred to ensure conservation?
         ! Qpred(*,n) = Desired boundary flows at (t+1) 
@@ -128,24 +134,31 @@ MODULE network_solver
 
         ! Local vars
         INTEGER(ip)::i, n
-        REAL(dp):: delX(reach_data%xsect_count), dry_flag(reach_data%xsect_count)
+        REAL(dp):: delX(reach_data%xsect_count), dry_flag(reach_data%xsect_count), delX_v(reach_data%xsect_count)
         REAL(dp):: Area_pred(reach_data%xsect_count), Stage_pred(reach_data%xsect_count), Q_pred(reach_data%xsect_count)
         REAL(dp):: Area_cor(reach_data%xsect_count), Stage_cor(reach_data%xsect_count), Q_cor(reach_data%xsect_count)
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
-        REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count)
+        REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
 
         n=reach_data%xsect_count
 
         ! Use channel delX as temporary delX here
+
+        ! delX gives the distance between cross-sections
         delX = reach_data%downstream_dists(:,2)
+        ! delX_v denotes the lengths of each 'volume', centred around each
+        ! cross-section, with boundaries at the mid-point between cross-sections
+        ! Assume the upstream volume has upstream half-length equal to downstream half-length?
+        delX_v = (/ 0.5_dp*(delX(1:n-1) + delX(2:n)  ), delX(n) /) 
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
         !
 
-        ! Compute Area predictor
-        Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX(2:n)*&
+        ! Compute Area predictor Apred_i = Alast_i + dT/dX_v*[Qlast_(i+1/2) - Qlast_(i-1/2)],
+        ! where Qlast_(i+1/2) ~= Qlast_(i+1)
+        Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
@@ -154,17 +167,17 @@ MODULE network_solver
         convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag  
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(2:n)*dry_flag(1:n-1)
 
-        ! Compute Q predictor with implicit friction
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
+        ! Compute Q predictor with implicit friction
         ! Convective + gravity terms
         Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
-                       dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+                       dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
                        -dT*gravity*Af(1:n-1)*slope(1:n-1) 
 
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2._dp))*reach_data%Drag_1D(1:n-1) )
         DO i=1,n-1
-             IF(drag_factor(i).ne.0._dp) THEN
+             IF(drag_factor(i) > 0._dp) THEN
                 Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
              ELSE
                 ! Friction is negligible
@@ -172,17 +185,18 @@ MODULE network_solver
         END DO
 
 
-        ! Back-calculate stage
+        ! Back-calculate stage/width/drag
         DO i=1,n
             Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
             Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
+            Drag1D_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'drag1D')
         END DO
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! CORRECTOR STEP
 
         ! Compute Area corrector
-        Area_cor(2:n) = reach_data%Area(2:n) -dT/delX(2:n)*&
+        Area_cor(2:n) = reach_data%Area(2:n) -dT/delX_v(2:n)*&
                           (Q_pred(2:n) - Q_pred(1:n-1))
 
         ! Wet-dry flag
@@ -195,13 +209,13 @@ MODULE network_solver
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
         ! Convective + gravity terms
         Q_cor(2:n) = reach_data%Discharge(2:n) -  &
-                       dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+                       dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
                        -dT*gravity*Ab(2:n)*slope(2:n) 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
-        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*reach_data%Drag_1D(2:n) )
+        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*Drag1D_pred(2:n) )
         DO i=2,n
-             IF(drag_factor(i).ne.0._dp) THEN
+             IF(drag_factor(i) > 0._dp) THEN
                 Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
              ELSE
                 ! Friction is negligible
@@ -215,13 +229,14 @@ MODULE network_solver
         reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
 
-        ! Back-calculate Stage, width
+        ! Back-calculate Stage, width, 1D drag
         DO i=2,n-1
             reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')
             reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
+            reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag1D')
         END DO
         
-        ! Compute 'conservative' discharge?
+        ! Compute 'conservative' discharge??
 
 
     END SUBROUTINE one_mccormack_step
