@@ -71,18 +71,25 @@ MODULE network_solver
         !
         ! Mc-Cormack type flow solver with tweaks
         !
-        ! NOTE: The 'conservative' variant of the discharge is:
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! RAMBLINGS
         !
-        ! Qcon(t+1/2,i+1/2) := 0.5*(Q(t,i) + Q_pred(,i))
+        ! Area(t+1,i) = Area_pred+Area_cor =Area(t) -dT/dX*( Q(t,i+1) -Q(t,i) + Qpred(*,i) - Qpred(*,i-1) )
+        !
+        ! So, we can define the 'conservative' variant of the discharge is:
+        !
+        ! Qcon(t+1/2,i+1/2) := 0.5*(Q(t,i+1) + Q_pred(*,i))
         !
         ! which is 'conservative in the sense that it exactly satisfies:
         !
         ! A(t+1, i)-A(t, i) = -dT/dX* ( Qcon(t+1/2,i+1/2) - Qcon(t+1/2,i-1/2) )
-
+        !
         ! So we can impose exact discharge boundary conditions by ensuring that
-        ! the values of Qcon at the discharge boundaries attain the values that we want
+        ! the values of Qcon at the discharge boundaries (n+1/2 & 1/2) attain the values that we want
         ! 
-        ! This will mean that Qpred(:,n+1/2) and Qpred(:,1/2) = Desired boundary flows at (t+1)  
+        ! This will occur if Qpred(*,n) and Qpred(*,0) = Desired boundary flows at (t+1) 
+        ! and Q(t,n+1), Q(t, 1) = Desired boundary flows at (t)
+        !
         !
 
         TYPE(reach_data_type), INTENT(INOUT):: reach_data
