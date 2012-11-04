@@ -71,6 +71,19 @@ MODULE network_solver
         !
         ! Mc-Cormack type flow solver with tweaks
         !
+        ! NOTE: The 'conservative' variant of the discharge is:
+        !
+        ! Qcon(t+1/2,i+1/2) := 0.5*(Q(t,i) + Q_pred(,i))
+        !
+        ! which is 'conservative in the sense that it exactly satisfies:
+        !
+        ! A(t+1, i)-A(t, i) = -dT/dX* ( Qcon(t+1/2,i+1/2) - Qcon(t+1/2,i-1/2) )
+
+        ! So we can impose exact discharge boundary conditions by ensuring that
+        ! the values of Qcon at the discharge boundaries attain the values that we want
+        ! 
+        ! This will mean that Qpred(:,n+1/2) and Qpred(:,1/2) = Desired boundary flows at (t+1)  
+        !
 
         TYPE(reach_data_type), INTENT(INOUT):: reach_data
         REAL(dp), INTENT(IN):: time, dT
@@ -88,6 +101,11 @@ MODULE network_solver
 
         ! Use channel delX as temporary delX here
         delX = reach_data%downstream_dists(:,2)
+
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! PREDICTOR STEP
+        !
+
         ! Compute Area predictor
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX(2:n)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
@@ -105,7 +123,7 @@ MODULE network_solver
                        dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
                        -dT*gravity*Af(1:n-1)*slope(1:n-1) 
 
-        ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q*abs(Q)
+        ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2._dp))*reach_data%Drag_1D(1:n-1) )
         DO i=1,n-1
              IF(drag_factor(i).ne.0._dp) THEN
@@ -122,6 +140,8 @@ MODULE network_solver
             Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
         END DO
 
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! CORRECTOR STEP
 
         ! Compute Area corrector
         Area_cor(2:n) = reach_data%Area(2:n) -dT/delX(2:n)*&
@@ -140,8 +160,8 @@ MODULE network_solver
                        dT/delX(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
                        -dT*gravity*Ab(2:n)*slope(2:n) 
         
-        ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q*abs(Q)
-        drag_factor(2:n)=(gravity*Af(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*reach_data%Drag_1D(2:n) )
+        ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
+        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*reach_data%Drag_1D(2:n) )
         DO i=2,n
              IF(drag_factor(i).ne.0._dp) THEN
                 Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
@@ -151,8 +171,9 @@ MODULE network_solver
         END DO
 
 
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! COMPUTE 'FINAL' UPDATE
 
-        ! Compute 'final' update
         reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
 
