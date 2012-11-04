@@ -72,7 +72,9 @@ MODULE river_classes
         !
         ! 1D flow variables
         !
-        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), Area(:), Width(:) 
+        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
+                                Area(:), Width(:), &
+                                Drag_1D(:) 
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
