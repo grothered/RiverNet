@@ -149,8 +149,13 @@ MODULE network_solver
         delX = reach_data%downstream_dists(:,2)
         ! delX_v denotes the lengths of each 'volume', centred around each
         ! cross-section, with boundaries at the mid-point between cross-sections
+
         ! Assume the upstream volume has upstream half-length equal to downstream half-length?
-        delX_v = (/ 0.5_dp*(delX(1:n-1) + delX(2:n)  ), delX(n) /) 
+        !delX_v = (/ 0.5_dp*(delX(1:n-1) + delX(2:n)  ), delX(n) /) 
+
+        ! Assume the upstream/downstream volumes are 'half as long' as other
+        ! volumes, so that the reach still ends at the bounding x-sections
+        delX_v = (/0.5*delX(2),  0.5_dp*(delX(2:n-1) + delX(3:n)  ), 0.5_dp*delX(n) /) 
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
