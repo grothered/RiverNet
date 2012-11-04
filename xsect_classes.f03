@@ -4,8 +4,11 @@ MODULE xsect_classes
     IMPLICIT NONE
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    TYPE MONOTONIC_RELATION
-        ! Holds two variables with a monotonic relation (e.g. Stage vs Area)
+    TYPE ONE_D_RELATION
+        ! Holds several variables with a one-dimensional relation (e.g. Stage & Area & Width & 1D roughness)
+        ! These can be stored in an array, with each row of the array holding the value of
+        ! Stage/Area/Width/1D roughness etc which occur simultaneously in a given cross-section
+        !
         ! This can be used to make a function which computes one variable given the other
         ! (with interpolation as appropriate). 
         ! e.g. Compute 'Area' given 'Stage', or vice-versa
@@ -16,8 +19,10 @@ MODULE xsect_classes
         ! index can make the look-up fast.
         REAL(dp), ALLOCATABLE:: x_y(:,:)
         INTEGER(ip):: last_search_index
+        CHARACTER(len=charlen), ALLOCATABLE:: varnames(:)
+
         contains
-        PROCEDURE:: eval=> stage_from_area ! eval(Area1) = Stage1, or eval(Stage1, inverse=TRUE)=Area1
+        PROCEDURE:: eval=> eval_one_D_relation 
     END TYPE    
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -36,24 +41,19 @@ MODULE xsect_classes
         REAL(dp), ALLOCATABLE:: downstream_dists(:) ! Distances 
         REAL(dp), ALLOCATABLE:: roughness(:,:) ! Manning?
 
-        !  Add in relations to compute width/area from stage, and vice versa.
-        ! FIXME: This is inefficient, in that it stores stage twice. Could have
-        ! a stage_area_width relation, but more work to generalise
-        ! FIXME: Really, we will probably want to generalise this to having stage-"1D roughness",
-        ! and other things. 
-        TYPE(MONOTONIC_RELATION):: stage_area_curve
-        TYPE(MONOTONIC_RELATION):: stage_width_curve
+        !  Add in relations to compute width/area/roughness from stage, and sometimes vice versa.
+        TYPE(ONE_D_RELATION):: stage_etc_curve   
         
         contains
         PROCEDURE:: print => print_xsect
-        PROCEDURE:: init_stage_area_curve_and_stage_width_curve=>init_stage_area_curve_and_stage_width_curve
+        PROCEDURE:: init_stage_etc_curve=>init_stage_etc_curve
     END TYPE XSECT_DATA_TYPE
 
     contains
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE init_stage_area_curve_and_stage_width_curve(xsect)
+    SUBROUTINE init_stage_etc_curve(xsect)
         !
         ! Compute data that will be used to interpolate stage from Area, and vice-versa
         !
@@ -62,8 +62,9 @@ MODULE xsect_classes
 
         ! NOTE: INTEGERS ARE NOT ip, since this might trouble slatec
         INTEGER:: IPERM(size(xsect%yz(:,1))), ierr, i, j,unique_stage_count
+        INTEGER:: num_vars=3 ! Number of variables in the relation. Stage, Area, Width
 
-        REAL(dp):: stage_area_protection=1000._dp ! FIXME: MAGIC NUMBER
+        REAL(dp):: stage_protection=1000._dp ! FIXME: MAGIC NUMBER
         REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher, incremental_width 
 
         ! NOTE: PRESENTLY WE DO AN AREA COMPUTATION WHICH WORKS FOR XSECTIONS WITH
@@ -76,9 +77,13 @@ MODULE xsect_classes
         ! [stage_j - 0.5(bed_i-bed_i-1), stage_j + 0.5(bed_i+1-bed_i-1)]
         ! over the entire cross-section.
         ! Then, the cumulative sum will give the stage/area relation
-        ! For protection, we add another high stage (with value = max(bed) + stage_area_protection)
-        ! to the stage_area_curve
-        
+        ! For protection, we add another high stage (with value = max(bed) + stage_protection)
+        ! to the stage_etc_curve
+       
+        ALLOCATE(xsect%stage_etc_curve%varnames(num_vars))
+        xsect%stage_etc_curve%varnames(1)='stage'
+        xsect%stage_etc_curve%varnames(2)='area'
+        xsect%stage_etc_curve%varnames(3)='width'
 
         ! Step 1: Compute the indices of the sorted bed elevations.
         ! yz(IPERM, 2) is non-decreasing
@@ -103,17 +108,14 @@ MODULE xsect_classes
             END IF
         END DO
 
-        ! Allocate monotonic relation -- include space for one large stage at the end
-        ALLOCATE(xsect%stage_area_curve%x_y(unique_stage_count+1,2))
-        ALLOCATE(xsect%stage_width_curve%x_y(unique_stage_count+1,2))
-        xsect%stage_area_curve%last_search_index=1 ! Initialise this index
-        xsect%stage_width_curve%last_search_index=1 ! Initialise this index
+        ! Allocate 1D_relation -- include space for one large stage at the end
+        ALLOCATE(xsect%stage_etc_curve%x_y(unique_stage_count+1,num_vars))
+        xsect%stage_etc_curve%last_search_index=1 ! Initialise this index
 
         ! Step 3: Assign values
 
         ! Set lowest x_y pair
-        xsect%stage_area_curve%x_y(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
-        xsect%stage_width_curve%x_y(1,1:2) =(/ minval(xsect%yz(:,2)), 0._dp /) 
+        xsect%stage_etc_curve%x_y(1,:) =(/ minval(xsect%yz(:,2)), 0._dp, 0._dp /) 
 
         ! Assign stage values
         unique_stage_count=1
@@ -121,23 +123,20 @@ MODULE xsect_classes
             IF(xsect%yz(IPERM(i),2)/= xsect%yz(IPERM(i-1), 2)) THEN
                 ! Bed value is different to the previous one
                 unique_stage_count=unique_stage_count+1
-                xsect%stage_area_curve%x_y(unique_stage_count,1) = xsect%yz(IPERM(i),2)
-                xsect%stage_width_curve%x_y(unique_stage_count,1) = xsect%yz(IPERM(i),2)
+                xsect%stage_etc_curve%x_y(unique_stage_count,1) = xsect%yz(IPERM(i),2)
             END IF
         END DO
 
         ! Add an upper bound to the stage-area curve, so that extrapolation does not automatically fail
-        xsect%stage_area_curve%x_y(unique_stage_count+1, 1) = & 
-                xsect%stage_area_curve%x_y(unique_stage_count,1) + stage_area_protection
-        xsect%stage_width_curve%x_y(unique_stage_count+1, 1) = & 
-                xsect%stage_width_curve%x_y(unique_stage_count,1) + stage_area_protection
+        xsect%stage_etc_curve%x_y(unique_stage_count+1, 1) = & 
+                xsect%stage_etc_curve%x_y(unique_stage_count,1) + stage_protection
 
-        ! Find incremental area
+        ! Find incremental area / width/ other variable
         DO i=2,unique_stage_count
             incremental_area=0._dp
             incremental_width=0._dp
 
-            stg=xsect%stage_area_curve%x_y(i,1) ! shorthand
+            stg=xsect%stage_etc_curve%x_y(i,1) ! shorthand
 
             ! Loop over the width of the xsection
             DO j=1,size(xsect%yz(:,1))-1
@@ -162,69 +161,80 @@ MODULE xsect_classes
                     END IF
                 END IF
             END DO
-            xsect%stage_area_curve%x_y(i,2) = incremental_area 
-            xsect%stage_width_curve%x_y(i,2) = incremental_width 
+            xsect%stage_etc_curve%x_y(i,2) = incremental_area 
+            xsect%stage_etc_curve%x_y(i,3) = incremental_width 
+            
         END DO
 
         ! Add upper bound value so that we can continue extrapolating area, as
         ! though there were vertical walls bounding the xsection
         j=size(xsect%yz(:,1))
-        xsect%stage_area_curve%x_y(unique_stage_count+1,2) = &
-                    (xsect%yz(j,1)-xsect%yz(1,1))*stage_area_protection
-        xsect%stage_width_curve%x_y(unique_stage_count+1,2) = &
-                    max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_width_curve%x_y(unique_stage_count,2))
+        xsect%stage_etc_curve%x_y(unique_stage_count+1,2) = &
+                    (xsect%yz(j,1)-xsect%yz(1,1))*stage_protection
+        xsect%stage_etc_curve%x_y(unique_stage_count+1,3) = &
+                    max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_etc_curve%x_y(unique_stage_count,3))
 
-    END SUBROUTINE init_stage_area_curve_and_stage_width_curve
+    END SUBROUTINE init_stage_etc_curve
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    FUNCTION stage_from_area(stage_area_curve, area, inverse)
-        ! Function to compute stage from  area, using the stage-area curve for the xsection
-        ! Optionally, the user may supply inverse=.TRUE., in which case the function computes
-        ! area, given stage
-        CLASS(MONOTONIC_RELATION), INTENT(IN), target:: stage_area_curve
-        REAL(dp), INTENT(IN):: area
-        LOGICAL, INTENT(IN), OPTIONAL:: inverse
-        REAL(dp):: stage_from_area
+    FUNCTION eval_one_D_relation(stage_etc_curve, predictor, predictor_varname, output_varname)
+        ! Interpolation function for one_D_relation 
+        !
+        ! Compute the value of 'output_varname' associated with the
+        ! 'predictor' value of 'predictor_varname' in a ONE_D_RELATION 
+        ! 
+        ! E.G. 
+        ! eval_one_D_relation(stage_etc_curve, 1.0, 'stage', 'area') =
+        ! [ the value of 'area' associated with a 'stage' of 1.0]
+
+        CLASS(ONE_D_RELATION), INTENT(IN), target:: stage_etc_curve
+        REAL(dp), INTENT(IN):: predictor
+        CHARACTER(*), INTENT(IN):: predictor_varname, output_varname
+        REAL(dp):: eval_one_d_relation
 
         ! Local variables
-        INTEGER(ip):: i, lower_ind, l
+        INTEGER(ip):: i, lower_ind, l, predictor_index, output_index
         REAL(dp):: weight
         INTEGER(ip), pointer:: last_search_index
-        REAL(dp), pointer:: S_A(:,:)
+        REAL(dp):: S_A(size(stage_etc_curve%x_y(:,1)),2)
         LOGICAL:: inverse_b
-
-        ! Set up optional argument inverse
-        IF(present(inverse)) THEN
-            inverse_b=inverse
-        ELSE
-            inverse_b=.FALSE.
-        END IF            
 
         ! Firstly, set up stage_area relation, depending on whether or not we
         ! are interpolating stage from area (default, inverse=false), or area from stage
         ! (inverse=true)
-        IF(inverse_b.eqv..FALSE.) THEN
-            ! Default case
-            S_A=> stage_area_curve%x_y(:,1:2) 
-        ELSE
-            ! Interpolate Area given stage
-            S_A=> stage_area_curve%x_y(:,2:1:-1) 
+        predictor_index=-1
+        output_index=-1
+        DO i=1,size(stage_etc_curve%varnames)
+            IF(stage_etc_curve%varnames(i).EQ. predictor_varname) predictor_index=i
+            IF(stage_etc_curve%varnames(i).EQ. output_varname) output_index=i
+        END DO
+
+        IF( (predictor_index<1).OR.(output_index<1)) THEN
+            print*, 'ERROR in eval_one_d_relation:'
+            print*, 'Cannot find one or both of predictor varname ', predictor_varname
+            print*, ' and output varname ', output_varname
+            print*, ' in stage_etc_curve%varnames: ', stage_etc_curve%varnames
+            stop
         END IF
-        last_search_index=>stage_area_curve%last_search_index
+
+        ! Store relevant variables in a 2 column array: (output, predictor)
+        !S_A=> stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
+        S_A= stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
+        last_search_index=>stage_etc_curve%last_search_index
 
         ! Logical checks / quick exit
-        IF(area<S_A(1,2)) THEN
-            print*, "ERROR: Trying to interpolate (area or stage): Used a"
-            print*, "predictor (stage or area) which is < min(stage or area) on this cross-section"
+        IF(predictor<S_A(1,2)) THEN
+            print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
+            print*, "predictor which is < min(values of this predictor) on this cross-section"
             stop
         END IF
 
 
         l=size(S_A(:,1))
-        IF(area> S_A(l,1)) THEN
-            print*, 'ERROR: Input Area/Stage is too large to interpolate from stage area curve:'
-            print*, 'This is almost definitely an error, as stage_area_protection should make'
-            print*, ' the curve interpolate well beyond the cross-sectional data'
+        IF(predictor > S_A(l,2)) THEN
+            print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
+            print*, "predictor which is > max(values of this predictor) on this cross-section"
+            stop
             stop
         END IF
 
@@ -232,17 +242,17 @@ MODULE xsect_classes
 
         ! Find index just below our desired interpolation region
         lower_ind=-1
-        IF(area>=S_A(last_search_index,2)) THEN
+        IF(predictor>=S_A(last_search_index,2)) THEN
             DO i= last_search_index+1, l
-                IF (area<S_A(i,2)) THEN
+                IF (predictor<S_A(i,2)) THEN
                     lower_ind=i-1
                     EXIT
                 END IF
             END DO
         ELSE
-            ! Area < Area at last search index
+            ! predictor < predictor at last search index
             DO i= last_search_index-1, 1,-1
-                IF (area>=S_A(i,2)) THEN
+                IF (predictor>=S_A(i,2)) THEN
                     lower_ind=i
                     EXIT
                 END IF
@@ -251,17 +261,17 @@ MODULE xsect_classes
 
         last_search_index=lower_ind ! Update last_search_index
         ! Weighted average
-        weight=(S_A(lower_ind+1,2)-area)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
-        stage_from_area = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
+        weight=(S_A(lower_ind+1,2)-predictor)/(S_A(lower_ind+1,2) - S_A(lower_ind,2))
+        eval_one_d_relation = S_A(lower_ind,1)*weight + S_A(lower_ind+1,1)*(1.0_dp-weight)
 
-    END FUNCTION stage_from_area
+    END FUNCTION eval_one_D_relation
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     SUBROUTINE print_xsect(xsect)
         CLASS(XSECT_DATA_TYPE), INTENT(IN):: xsect
         INTEGER:: k
-        REAL(dp):: tmp, tmp2, tmp3
+        REAL(dp):: tmp, tmp2, tmp3, tmp4
 
         print*, trim(xsect%myname)
         print*, 'Downstream distances are ', xsect%downstream_dists
@@ -282,22 +292,24 @@ MODULE xsect_classes
         END DO
 
         print*, 'Xsect Stage-Area-Width curve'
-        DO k=1,size(xsect%stage_area_curve%x_y(:,1))
-            print*, xsect%stage_area_curve%x_y(k,:), xsect%stage_width_curve%x_y(k,2)
+        DO k=1,size(xsect%stage_etc_curve%x_y(:,1))
+            print*, xsect%stage_etc_curve%x_y(k,:)
         END DO
 
         ! Test of stage-area relation
         print*, 'Checking that stage-area curve interpolates okay...'
-        tmp=minval(xsect%stage_area_curve%x_y(:,2))
-        DO k=1, 10
-            tmp=tmp+(k-1)*1.0_dp ! Hypothetical Area
-            tmp2=xsect%stage_area_curve%eval(tmp) ! Stage when area = tmp
-            tmp3=xsect%stage_area_curve%eval(tmp2,inverse=.TRUE.) ! Should = tmp
+        tmp=minval(xsect%stage_etc_curve%x_y(:,1))
+        DO k=1, 5
+            tmp=tmp+(k-1)*1.0_dp ! Hypothetical stage
+            tmp3=xsect%stage_etc_curve%eval(tmp, 'stage', 'area') ! area when stage = tmp
+            tmp2=xsect%stage_etc_curve%eval(tmp3, 'area', 'stage') ! Should = tmp
+            tmp4=xsect%stage_etc_curve%eval(tmp3, 'area', 'width')
+            print*, 'When stage = ', tmp, ' area = ', tmp3, ' width = ', tmp4
 
             ! TEST of Stage-area relation
-            IF(abs(tmp3 - tmp) > 1.0e-8_dp) THEN
+            IF(abs(tmp2 - tmp) > 1.0e-8_dp) THEN
                 print*, 'ERROR: Seems there is a problem on this stage-area curve'
-                print*, 'Area= ', tmp, ' Stage= ', tmp2, ' Inverted Area ', tmp3, ' Difference ',tmp-tmp3
+                print*, 'Stage= ', tmp, ' Area= ', tmp3, ' Inverted stage ', tmp2, ' Difference ',tmp-tmp2
                 stop
             END IF
             

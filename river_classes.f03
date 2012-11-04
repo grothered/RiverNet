@@ -71,6 +71,8 @@ MODULE river_classes
 
         !
         ! 1D flow variables
+        ! Length of these can be equal (number of cross-sections+2)
+        ! So we can store the boundary conditions here as well, and implement them smoothly
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
                                 Area(:), Width(:), &
@@ -78,6 +80,9 @@ MODULE river_classes
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
+
+        ! Depth at which we set velocity/fluxes to zero to prevent bad solver behaviour
+        REAL(dp):: wet_dry_depth=1.0e-03
 
 
         contains
@@ -154,6 +159,10 @@ MODULE river_classes
         print*, 'Downstream distances:'
         DO j=1,size(reach%downstream_dists(:,1))
             print*, '   ', reach%downstream_dists(j,:)
+            IF(minval(reach%downstream_dists(j,:)) < 0._dp) THEN
+                print*, 'ERROR: Negative downstream distance'
+                stop
+            END IF
         END DO
 
         ! Print coordinates
