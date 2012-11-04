@@ -72,7 +72,7 @@ MODULE network_solver
         ! Mc-Cormack type flow solver with tweaks
         !
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        ! RAMBLINGS
+        ! EXACT DISCHARGE BOUNDARIES
         !
         ! Area(t+1,i) = Area_pred+Area_cor =Area(t) -dT/dX*( Q(t,i+1) -Q(t,i) + Qpred(*,i) - Qpred(*,i-1) )
         !
@@ -84,12 +84,38 @@ MODULE network_solver
         !
         ! A(t+1, i)-A(t, i) = -dT/dX* ( Qcon(t+1/2,i+1/2) - Qcon(t+1/2,i-1/2) )
         !
-        ! So we can impose exact discharge boundary conditions by ensuring that
+        ! We can impose exact discharge boundary conditions by ensuring that
         ! the values of Qcon at the discharge boundaries (n+1/2 & 1/2) attain the values that we want
-        ! 
-        ! This will occur if Qpred(*,n) and Qpred(*,0) = Desired boundary flows at (t+1) 
-        ! and Q(t,n+1), Q(t, 1) = Desired boundary flows at (t)
         !
+        ! Subcritical Upstream -- set Apred, Qpred to ensure conservation?
+        ! Qpred(*,n) = Desired boundary flows at (t+1) 
+        ! Apred(*,n): 0.5*(Apred(*,1) + Acor(*,1)) = -dT/dX*(Qboundary(t+1/2, n+1/2) - Qcon(t+1/2, n-1/2))
+        !
+        ! Problem: We don't know Acor when evaluating Apred -- but we can
+        !          calculate it anyway ahead of time, straightforward
+        ! 
+        ! Subcritical downstream -- set Acor(*,1) and Qcor(*,1) to ensure conservation? 
+        ! Acor1: 0.5*(Acor(*,1) +Apred(*,1)) = -dT/dX*(Qcon(t+1/2, 1+1/2) -Qboundary(t+1,1/2))
+        ! Qcor1: Qcor(*,1) = Qboundary(t+1,1/2) 
+        !
+        ! AREA/STAGE BOUNDARIES
+        !
+        ! Subcritical upstream
+        ! A_pred(*,n) = Desired Area
+        ! Q_pred(*,n) = Whatever -- first order velocity extrapolation / flux extrapolation / zero gradient flux / ...
+        !
+        ! Subcritical downstream
+        ! A_cor(*,1) = Desired area
+        ! Qcor(*, 1) = Whatever -- first order velocity extrapolation / flux extrapolation / zero gradient flux / ...
+        !
+        !
+        ! SUPER CRITICAL BOUNDARIES
+        !   Inflow: A_pred = Desired Area at t+1?
+        !                  Q_pred = Desired discharge at t+1
+        !
+        !   Outflow: First order / zero order extrapolation
+        ! 
+        ! Will that do it?
         !
 
         TYPE(reach_data_type), INTENT(INOUT):: reach_data
