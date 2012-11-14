@@ -14,6 +14,9 @@ MODULE network_solver
         ! Update the timestep dT
         CALL update_timestep(network)
 
+        ! New boundary values for time t and t+delT -- the boundaries should store both 
+        CALL update_boundaries(network)
+        
         ! Update the flow Stage, Area + Discharge in reaches + junctions
 
         DO i=1,network%num_reaches
@@ -27,8 +30,6 @@ MODULE network_solver
         ! Advance time
         network%time=network%time+network%dT
         
-        ! New boundary values at new time 
-        CALL update_boundaries(network)
         
 
     END SUBROUTINE evolve_hydraulics
@@ -137,6 +138,7 @@ MODULE network_solver
         REAL(dp):: delX(reach_data%xsect_count), dry_flag(reach_data%xsect_count), delX_v(reach_data%xsect_count)
         REAL(dp):: Area_pred(reach_data%xsect_count), Stage_pred(reach_data%xsect_count), Q_pred(reach_data%xsect_count)
         REAL(dp):: Area_cor(reach_data%xsect_count), Stage_cor(reach_data%xsect_count), Q_cor(reach_data%xsect_count)
+        !REAL(dp):: Vol_pred(reach_data%xsect_count-1), Vol_cor(reach_data%xsect_count-1)
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
@@ -165,6 +167,8 @@ MODULE network_solver
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
+        !Vol_pred(1:n-1) = reach_data%Volume(1:n-1) -dT*&
+        !                  (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
         dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
@@ -188,7 +192,10 @@ MODULE network_solver
                 ! Friction is negligible
              END IF
         END DO
-
+        
+        ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end
+        Area_pred(n) = reach_data%Area(n)
+        Q_pred(n) = reach_data%Discharge(n)
 
         ! Back-calculate stage/width/drag
         DO i=1,n
@@ -227,12 +234,14 @@ MODULE network_solver
              END IF
         END DO
 
-
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
         reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
+
+        ! COULD POSSIBLY APPLY BOUNDARY CONDITIONS HERE??
+        
 
         ! Back-calculate Stage, width, 1D drag
         DO i=2,n-1
