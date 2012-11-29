@@ -490,6 +490,92 @@ module hecras_IO
     END SUBROUTINE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    SUBROUTINE read_hecras_boundary_conditions(input_boundary_file, network, print_output)
+        ! Read a hecras .uXX boundary conditions file into the network object
+        CHARACTER(len=charlen), INTENT(IN):: input_boundary_file
+        TYPE(network_data_type), INTENT(INOUT):: network
+        LOGICAL, INTENT(IN):: print_output
+       
+        INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
+        INTEGER(ip):: lb, ub
+        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station
+        CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
+        CHARACTER(len=charlen):: temp_char_vec(veclen)
+        CLASS(REACH_BOUNDARY), pointer:: this_boundary
+
+        ! Open the input file
+        OPEN(newunit=input_file_unit_no, file=input_boundary_file)
+
+        ! Loop over every 'Boundary Location' line, and possibly suck it into network
+        DO WHILE(io_test==0)
+
+            CALL next_match(input_file_unit_no, 'Boundary Location=', io_test,'(A18)')
+            
+            IF(io_test==0) THEN
+                BACKSPACE(input_file_unit_no)
+                ! read the names associated with this boundary
+                read(input_file_unit_no,"(18X, A16, 1X, A16, 1X, A8)"), bnd_river_name, bnd_reach_name, bnd_station
+
+                ! Check if these match any river on the network
+                DO i=1,network%num_reaches
+                    river_name=network%reach_data(i)%names(1)
+                    reach_name=network%reach_data(i)%names(2)
+                    IF( (trim(river_name)==trim(bnd_river_name)).AND.(trim(reach_name)==trim(bnd_reach_name))) THEN
+                        print*, 'Found boundary at ', trim(river_name),' ', trim(reach_name)
+                        ! Look at the first/last xsections and see if they match the station name
+                        read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
+                        read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
+
+                        ! Make a pointer to the boundary for ease of data input
+                        IF(bnd_station==station1) THEN
+                            print*, 'Upstream boundary'
+                            this_boundary=>network%reach_data(i)%Upstream_boundary
+                        ELSEIF(bnd_station==stationN) THEN
+                            print*, 'Downstream boundary'
+                            this_boundary=>network%reach_data(i)%Downstream_boundary
+                        ELSE
+                            print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
+                            stop
+                        END IF
+
+                        ! Put the file data into the boundary
+
+                        ! Skip a line
+                        read(input_file_unit_no, *)
+                        ! Read size of data
+                        read(input_file_unit_no, "(16X, I8)") bnd_data_length
+                        ! Allocate data
+                        ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
+                        ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
+                        this_boundary%Boundary_t_w_Q%varnames(1)='time'
+                        this_boundary%Boundary_t_w_Q%varnames(1)='w'
+                        this_boundary%Boundary_t_w_Q%varnames(1)='Q'
+                        ! Make up time / water surface
+                        DO j=1,bnd_data_length
+                            this_boundary%Boundary_t_w_Q%x_y(:,1) = 60._dp*(j-1)
+                            this_boundary%Boundary_t_w_Q%x_y(:,2) = 30._dp
+                        END DO
+                        
+                        ! Read discharge data into file
+                        DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
+                            read(input_file_unit_no, "(10A8)") temp_char_vec
+                            lb = (j-1)*10 + 1
+                            ub = j*10
+                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec)
+                        END DO
+                        print*, 'Boundary data ....'
+                        print*, this_boundary%Boundary_t_w_Q%x_y
+                        print*, '....'
+                    ELSE
+                        print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, &
+                                ', but these were not found in network geometry'
+                    END IF
+                END DO
+
+            END IF
+        END DO
+
+    END SUBROUTINE
 
 END MODULE hecras_IO
 
