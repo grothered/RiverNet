@@ -5,6 +5,8 @@ module hecras_IO
     !! Routines to read hec-ras .g* geometry files
     USE global_defs
     USE river_classes
+    USE reach_boundary_classes
+    USE xsect_classes
     USE IO_util
     IMPLICIT NONE
    

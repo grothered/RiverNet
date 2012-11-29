@@ -41,7 +41,7 @@ MODULE xsect_classes
 
         ! NOTE: INTEGERS ARE NOT ip, since this might trouble slatec
         INTEGER:: IPERM(size(xsect%yz(:,1))), ierr, i, j,unique_stage_count
-        INTEGER:: num_vars=3 ! Number of variables in the relation. Stage, Area, Width
+        INTEGER:: num_vars=4 ! Number of variables in the relation. Stage, Area, Width, drag_1D
 
         REAL(dp):: stage_protection=1000._dp ! FIXME: MAGIC NUMBER
         REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher, incremental_width 
@@ -58,11 +58,14 @@ MODULE xsect_classes
         ! Then, the cumulative sum will give the stage/area relation
         ! For protection, we add another high stage (with value = max(bed) + stage_protection)
         ! to the stage_etc_curve
+
+        print*, 'WARNING: have not properly initialised drag_1D'
        
         ALLOCATE(xsect%stage_etc_curve%varnames(num_vars))
         xsect%stage_etc_curve%varnames(1)='stage'
         xsect%stage_etc_curve%varnames(2)='area'
         xsect%stage_etc_curve%varnames(3)='width'
+        xsect%stage_etc_curve%varnames(4)='drag_1D'
 
         ! Step 1: Compute the indices of the sorted bed elevations.
         ! yz(IPERM, 2) is non-decreasing
@@ -141,7 +144,8 @@ MODULE xsect_classes
                 END IF
             END DO
             xsect%stage_etc_curve%x_y(i,2) = incremental_area 
-            xsect%stage_etc_curve%x_y(i,3) = incremental_width 
+            xsect%stage_etc_curve%x_y(i,3) = incremental_width
+            xsect%stage_etc_curve%x_y(i,4) = 0.01_dp ! FIXME
             
         END DO
 
@@ -152,6 +156,7 @@ MODULE xsect_classes
                     (xsect%yz(j,1)-xsect%yz(1,1))*stage_protection
         xsect%stage_etc_curve%x_y(unique_stage_count+1,3) = &
                     max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_etc_curve%x_y(unique_stage_count,3))
+        xsect%stage_etc_curve%x_y(unique_stage_count+1,4) = 0.01_dp
 
     END SUBROUTINE init_stage_etc_curve
 
