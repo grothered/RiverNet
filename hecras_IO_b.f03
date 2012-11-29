@@ -492,10 +492,12 @@ module hecras_IO
 
     SUBROUTINE read_hecras_boundary_conditions(input_boundary_file, network, print_output)
         ! Read a hecras .uXX boundary conditions file into the network object
+
         CHARACTER(len=charlen), INTENT(IN):: input_boundary_file
         TYPE(network_data_type), INTENT(INOUT):: network
         LOGICAL, INTENT(IN):: print_output
-       
+
+        ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
         INTEGER(ip):: lb, ub
         CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
@@ -506,9 +508,10 @@ module hecras_IO
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
 
-        ! Loop over every 'Boundary Location' line, and possibly suck it into network
+        ! Loop over every 'Boundary Location' line, and possibly suck the data into a reach boundary
         DO WHILE(io_test==0)
 
+            ! Find 'Boundary Location='
             CALL next_match(input_file_unit_no, 'Boundary Location=', io_test,'(A18)')
             
             IF(io_test==0) THEN
@@ -540,8 +543,8 @@ module hecras_IO
                             stop
                         END IF
 
-                        ALLOCATE(this_boundary)
                         ! Allocate data
+                        ALLOCATE(this_boundary)
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
                         this_boundary%Boundary_t_w_Q%varnames(1)='time'
@@ -584,9 +587,11 @@ module hecras_IO
                             print*, this_boundary%Boundary_t_w_Q%x_y(j,:)
                         END DO
                         print*, '....'
+
+                        ! Clean up
                         DEALLOCATE(this_boundary)
                     ELSE
-                        print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, &
+                        print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, bnd_station, &
                                 ', but these were not found in network geometry'
                     END IF
                 END DO
