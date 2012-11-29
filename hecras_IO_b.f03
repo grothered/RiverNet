@@ -498,10 +498,10 @@ module hecras_IO
        
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
         INTEGER(ip):: lb, ub
-        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station
+        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
-        CLASS(REACH_BOUNDARY), pointer:: this_boundary
+        TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
@@ -522,34 +522,26 @@ module hecras_IO
                     reach_name=network%reach_data(i)%names(2)
                     IF( (trim(river_name)==trim(bnd_river_name)).AND.(trim(reach_name)==trim(bnd_reach_name))) THEN
                         print*, 'Found boundary at ', trim(river_name),' ', trim(reach_name)
-                        ! Look at the first/last xsections and see if they match the station name
-                        read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
-                        read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
-
-                        ! Make a pointer to the boundary for ease of data input
-                        IF(bnd_station==station1) THEN
-                            print*, 'Upstream boundary'
-                            this_boundary=>network%reach_data(i)%Upstream_boundary
-                        ELSEIF(bnd_station==stationN) THEN
-                            print*, 'Downstream boundary'
-                            this_boundary=>network%reach_data(i)%Downstream_boundary
-                        ELSE
-                            print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
-                            stop
-                        END IF
 
                         ! Put the file data into the boundary
 
                         ! Skip a line
                         read(input_file_unit_no, *)
                         ! Read size of data
-                        read(input_file_unit_no, "(16X, I8)") bnd_data_length
+                        read(input_file_unit_no, "(A16, I8)") hec_bnd_type, bnd_data_length
+
+                        IF(hec_bnd_type.NE.'Flow Hydrograph=') THEN
+                            print*, 'ERROR: Have only implemented flow hydrograph boundaries at present'
+                            stop
+                        END IF
+
+                        ALLOCATE(this_boundary)
                         ! Allocate data
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
                         this_boundary%Boundary_t_w_Q%varnames(1)='time'
-                        this_boundary%Boundary_t_w_Q%varnames(1)='w'
-                        this_boundary%Boundary_t_w_Q%varnames(1)='Q'
+                        this_boundary%Boundary_t_w_Q%varnames(2)='w'
+                        this_boundary%Boundary_t_w_Q%varnames(3)='Q'
                         ! Make up time / water surface
                         DO j=1,bnd_data_length
                             this_boundary%Boundary_t_w_Q%x_y(:,1) = 60._dp*(j-1)
@@ -563,9 +555,27 @@ module hecras_IO
                             ub = j*10
                             this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec)
                         END DO
+                       
+                        ! Now stick the boundary onto the reach 
+                        ! Look at the first/last xsections and see if they match the station name
+                        read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
+                        read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
+
+                        IF(bnd_station==station1) THEN
+                            print*, 'Upstream boundary'
+                            allocate(network%reach_data(i)%Upstream_boundary, source=this_boundary)
+                        ELSEIF(bnd_station==stationN) THEN
+                            print*, 'Downstream boundary'
+                            allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                        ELSE
+                            print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
+                            stop
+                        END IF
+                        
                         print*, 'Boundary data ....'
                         print*, this_boundary%Boundary_t_w_Q%x_y
                         print*, '....'
+                        DEALLOCATE(this_boundary)
                     ELSE
                         print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, &
                                 ', but these were not found in network geometry'
