@@ -3,58 +3,8 @@ MODULE river_classes
     USE global_defs
     USE one_d_relation_class
     USE xsect_classes
+    USE reach_boundary_classes
     IMPLICIT NONE
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !
-    ! BOUNDARY CONDITIONS
-    !
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    TYPE REACH_BOUNDARY
-        ! Generic type for boundaries of reaches. Specialisations of this are
-        ! junction boundary and physical boundary
-        CHARACTER(len=charlen):: boundary_type ! junction or physical -- do I even need this?
-        REAL(dp):: boundary_location(2) ! x-y data associated with the boundary
-        contains
-        PROCEDURE:: print => print_boundary
-        PROCEDURE:: delete => deallocate_reach_boundary
-    END TYPE REACH_BOUNDARY
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    TYPE, EXTENDS(REACH_BOUNDARY):: JUNCTION_BOUNDARY
-        ! Store the flow variables at every cross-section that meets at this boundary
-        ! Allow for junctions with 2 or more reaches joining
-        CHARACTER(len=charlen):: junction_name
-        CHARACTER(len=charlen):: junction_description
-
-        CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:, :) ! Names of reaches that join here
-        CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
-        REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
-
-        ! Hydrodynamic variables
-        REAL(dp), ALLOCATABLE:: Stage(:) ! Stage at each connection to the junction, for each reach
-        REAL(dp), ALLOCATABLE:: Area(:) ! Area at each connection to the junction, for each reach
-        REAL(dp), ALLOCATABLE:: Discharge(:) ! Discharge at each connection to the junction, for each reach
-
-    END TYPE JUNCTION_BOUNDARY
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    TYPE, EXTENDS(REACH_BOUNDARY):: PHYSICAL_BOUNDARY
-        ! Store a file with w,Q at the boundary, and a 'compute_method' to use if
-        ! we should not enforce both w and Q at the boundary.
-        ! [e.g. for subcritical flows, we could either
-        ! force the water surface elevation, or the discharge, or some combination of them,
-        ! but it is incorrect to force both w and Q]
-        CHARACTER(len=charlen):: input_file ! File containing t, w and Q
-
-        ! 'Always_discharge', 'Always_stage'
-        CHARACTER(len=charlen):: compute_method ! 'Always_w, Always_Q, Incoming_characteristic,...'
-
-        TYPE(ONE_D_RELATION):: Boundary_t_w_Q ! One-d-relation which will hold t, w, and Q timeseries for the boundary
-    END TYPE PHYSICAL_BOUNDARY
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !
@@ -122,34 +72,6 @@ MODULE river_classes
     CONTAINS
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE print_boundary(generic_boundary)
-        CLASS(REACH_BOUNDARY):: generic_boundary
-
-        INTEGER:: i
-
-        SELECT TYPE(generic_boundary)
-            TYPE IS (PHYSICAL_BOUNDARY)
-                print*, trim(generic_boundary%boundary_type),' ', &
-                                            trim(generic_boundary%input_file)
-                print*, trim(generic_boundary%compute_method)
-            TYPE IS (JUNCTION_BOUNDARY)
-                print*, '###############'
-                print*, 
-                print*, 'FIXME: Need to check that distances are set correctly'
-                print*, trim(generic_boundary%boundary_type), ' ',&
-                                            trim(generic_boundary%junction_name)
-                print*, trim(generic_boundary%junction_description)
-                DO i=1, size(generic_boundary%reach_names(:,1))
-                    print*, trim(generic_boundary%reach_names(i,1)), ' ',& 
-                            trim(generic_boundary%reach_names(i,2)), ' ',&
-                            trim(generic_boundary%reach_ends(i)), ' ',&
-                            generic_boundary%distances(i)
-                END DO
-        END SELECT
-
-    END SUBROUTINE print_boundary 
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE print_reach(reach)
         CLASS(REACH_DATA_TYPE), INTENT(IN):: reach
 
@@ -200,19 +122,5 @@ MODULE river_classes
 
     END SUBROUTINE get_downstream_dists_from_xsections
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE deallocate_reach_boundary(jb)
-            CLASS(reach_boundary):: jb
-
-            SELECT TYPE(jb)
-                TYPE IS(JUNCTION_BOUNDARY)
-                    DEALLOCATE(jb%reach_names)
-                    DEALLOCATE(jb%reach_ends)
-                    DEALLOCATE(jb%distances)
-                TYPE IS(PHYSICAL_BOUNDARY)
-                    print*, 'ERROR: Need to implement deallocation for physical boundary'
-                    stop
-            END SELECT
-    END SUBROUTINE deallocate_reach_boundary
 
 END MODULE river_classes

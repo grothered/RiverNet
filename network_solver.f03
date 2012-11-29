@@ -193,7 +193,7 @@ MODULE network_solver
              END IF
         END DO
         
-        ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end
+        ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
 
@@ -241,10 +241,15 @@ MODULE network_solver
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
 
         ! COULD POSSIBLY APPLY BOUNDARY CONDITIONS HERE??
+        ! FIXME: Overspecified, not exactly conservative, etc
+        reach_data%Area(n) = reach_data%Upstream_boundary%eval(t+delT, 'area')
+        reach_data%Discharge(n) = reach_data%Upstream_boundary%eval(t+delT, 'discharge')
+        reach_data%Area(1) = reach_data%Downstream_boundary%eval(t+delT, 'area')
+        reach_data%Discharge(1) = reach_data%Downstream_boundary%eval(t+delT, 'discharge')
         
 
         ! Back-calculate Stage, width, 1D drag
-        DO i=2,n-1
+        DO i=1,n
             reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')
             reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
             reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag1D')
