@@ -498,7 +498,7 @@ module hecras_IO
        
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
         INTEGER(ip):: lb, ub
-        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type
+        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
         TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
@@ -525,8 +525,13 @@ module hecras_IO
 
                         ! Put the file data into the boundary
 
-                        ! Skip a line
-                        read(input_file_unit_no, *)
+                        ! Read data time increment
+                        read(input_file_unit_no, *) interval
+                        IF(trim(interval).NE.'Interval=1MIN') THEN
+                            print*, 'ERROR: Have only implemented time boundaries with 1MIN spacing'
+                            stop
+                        END IF
+
                         ! Read size of data
                         read(input_file_unit_no, "(A16, I8)") hec_bnd_type, bnd_data_length
 
@@ -542,18 +547,20 @@ module hecras_IO
                         this_boundary%Boundary_t_w_Q%varnames(1)='time'
                         this_boundary%Boundary_t_w_Q%varnames(2)='w'
                         this_boundary%Boundary_t_w_Q%varnames(3)='Q'
+
+                        print*, this_boundary%Boundary_t_w_Q%varnames
                         ! Make up time / water surface
                         DO j=1,bnd_data_length
-                            this_boundary%Boundary_t_w_Q%x_y(:,1) = 60._dp*(j-1)
-                            this_boundary%Boundary_t_w_Q%x_y(:,2) = 30._dp
+                            this_boundary%Boundary_t_w_Q%x_y(j,1) = 60._dp*(j-1)
+                            this_boundary%Boundary_t_w_Q%x_y(j,2) = 30._dp
                         END DO
                         
                         ! Read discharge data into file
                         DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
-                            read(input_file_unit_no, "(10A8)") temp_char_vec
+                            read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
                             lb = (j-1)*10 + 1
                             ub = j*10
-                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec)
+                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:10))
                         END DO
                        
                         ! Now stick the boundary onto the reach 
@@ -573,7 +580,9 @@ module hecras_IO
                         END IF
                         
                         print*, 'Boundary data ....'
-                        print*, this_boundary%Boundary_t_w_Q%x_y
+                        DO j=1,bnd_data_length
+                            print*, this_boundary%Boundary_t_w_Q%x_y(j,:)
+                        END DO
                         print*, '....'
                         DEALLOCATE(this_boundary)
                     ELSE
