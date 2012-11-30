@@ -20,7 +20,7 @@ MODULE one_d_relation_class
         ! evaluate the function near to where we last evaluated it. Storing the 
         ! index can make the look-up fast.
         REAL(dp), ALLOCATABLE:: x_y(:,:)
-        INTEGER(ip):: last_search_index
+        INTEGER(ip):: last_search_index=-1
         CHARACTER(len=charlen), ALLOCATABLE:: varnames(:)
 
         contains
@@ -52,6 +52,13 @@ MODULE one_d_relation_class
         REAL(dp):: S_A(size(stage_etc_curve%x_y(:,1)),2)
         LOGICAL:: inverse_b
 
+        ! Check that we have initialised the one-d-relation
+        last_search_index=>stage_etc_curve%last_search_index
+        IF(last_search_index==-1) THEN
+            print*, 'ERROR: Have not initialised last_search_index in one_d_relation'
+            stop
+        END IF
+
         ! Firstly, set up stage_area relation, depending on whether or not we
         ! are interpolating stage from area (default, inverse=false), or area from stage
         ! (inverse=true)
@@ -73,12 +80,12 @@ MODULE one_d_relation_class
         ! Store relevant variables in a 2 column array: (output, predictor)
         !S_A=> stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
         S_A= stage_etc_curve%x_y(:,(/ output_index, predictor_index/) ) 
-        last_search_index=>stage_etc_curve%last_search_index
 
         ! Logical checks / quick exit
         IF(predictor<S_A(1,2)) THEN
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is < min(values of this predictor) on this cross-section"
+            print*, predictor,  predictor_varname, output_varname
             stop
         END IF
 
@@ -87,7 +94,7 @@ MODULE one_d_relation_class
         IF(predictor > S_A(l,2)) THEN
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is > max(values of this predictor) on this cross-section"
-            stop
+            print*, predictor,  predictor_varname, output_varname
             stop
         END IF
 

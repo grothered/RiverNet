@@ -26,13 +26,12 @@ MODULE river_classes
 
         !
         ! 1D flow variables
-        ! Length of these can be equal (number of cross-sections+2)
+        ! Length of these can be equal (number of cross-sections)
         ! So we can store the boundary conditions here as well, and implement them smoothly
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
                                 Area(:), Width(:), &
-                                Drag_1D(:)!, Volume(:)
-        ! size(Volume) = size(Stage)-1
+                                Drag_1D(:)
  
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel
@@ -45,6 +44,7 @@ MODULE river_classes
         contains
         PROCEDURE:: print => print_reach
         PROCEDURE:: get_downstream_dists_from_xsections => get_downstream_dists_from_xsections
+        PROCEDURE:: allocate_1d_vars => allocate_1d_vars
 
     END TYPE REACH_DATA_TYPE
 
@@ -122,5 +122,16 @@ MODULE river_classes
 
     END SUBROUTINE get_downstream_dists_from_xsections
 
+    SUBROUTINE allocate_1d_vars(reach)
+        ! Routine to allocate 1D variables in the reach (e.g Stage / Discharge/ Area / Width ..)
+        CLASS(reach_data_type), INTENT(INOUT)::reach
+
+        INTEGER(ip):: N
+
+        N=reach%xsect_count
+
+        ALLOCATE(reach%Stage(N), reach%Discharge(N), reach%Area(N), reach%Width(N), reach%Drag_1D(N))
+
+    END SUBROUTINE allocate_1d_vars
 
 END MODULE river_classes

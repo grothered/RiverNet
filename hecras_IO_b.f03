@@ -474,6 +474,12 @@ module hecras_IO
             END DO
         END DO
 
+
+        ! ALLOCATE 1D variables
+        DO i=1,network%num_reaches
+            call network%reach_data(i)%allocate_1d_vars()
+        END DO
+
         ! Print output
         IF(print_output) THEN
             ! FIXME: Could use this to make a 'print_reach' routine
@@ -500,6 +506,7 @@ module hecras_IO
         ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
         INTEGER(ip):: lb, ub
+        REAL(dp):: Qmin
         CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
@@ -547,11 +554,16 @@ module hecras_IO
                         ALLOCATE(this_boundary)
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
+
+                        ! Set boundary variable names
                         this_boundary%Boundary_t_w_Q%varnames(1)='time'
-                        this_boundary%Boundary_t_w_Q%varnames(2)='w'
-                        this_boundary%Boundary_t_w_Q%varnames(3)='Q'
+                        this_boundary%Boundary_t_w_Q%varnames(2)='stage'
+                        this_boundary%Boundary_t_w_Q%varnames(3)='discharge'
+                        ! Initialise last_search_index
+                        this_boundary%Boundary_t_w_Q%last_search_index=1
 
                         print*, this_boundary%Boundary_t_w_Q%varnames
+
                         ! Make up time / water surface
                         DO j=1,bnd_data_length
                             this_boundary%Boundary_t_w_Q%x_y(j,1) = 60._dp*(j-1)
@@ -565,11 +577,19 @@ module hecras_IO
                             ub = j*10
                             this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:10))
                         END DO
+
+                        ! Now, read the 'Qmin variable', and enforce the minimum discharge
+                        read(input_file_unit_no, "(21X, A8)") temp_char_vec(1)
+                        Qmin=char_2_real(temp_char_vec(1))
+                        this_boundary%Boundary_t_w_Q%x_y(:,3) = merge(this_boundary%Boundary_t_w_Q%x_y(:,3), & 
+                                                                      Qmin, &
+                                                                      this_boundary%Boundary_t_w_Q%x_y(:,3)> Qmin)
                        
                         ! Now stick the boundary onto the reach 
                         ! Look at the first/last xsections and see if they match the station name
                         read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
                         read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
+
 
                         IF(bnd_station==station1) THEN
                             print*, 'Upstream boundary'
@@ -582,12 +602,18 @@ module hecras_IO
                             stop
                         END IF
                         
-                        print*, 'Boundary data ....'
-                        DO j=1,bnd_data_length
-                            print*, this_boundary%Boundary_t_w_Q%x_y(j,:)
-                        END DO
-                        print*, '....'
+                        !print*, 'Boundary data ....'
+                        !DO j=1,bnd_data_length
+                        !    print*, this_boundary%Boundary_t_w_Q%x_y(j,:)
+                        !END DO
+                        !print*, '....'
 
+                        ! FIXME: Nangka specific HACK
+                        print*, 'warning: setting the downstream boundary in a hacky way ...'
+                        this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
+                        this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                        
                         ! Clean up
                         DEALLOCATE(this_boundary)
                     ELSE

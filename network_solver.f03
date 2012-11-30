@@ -13,9 +13,9 @@ MODULE network_solver
 
         ! Update the timestep dT
         CALL update_timestep(network)
-
+        print*, 'NETWORK DT: ', network%dT
         ! New boundary values for time t and t+delT -- the boundaries should store both 
-        CALL update_boundaries(network)
+        !CALL update_boundaries(network)
         
         ! Update the flow Stage, Area + Discharge in reaches + junctions
 
@@ -23,9 +23,9 @@ MODULE network_solver
             call one_mccormack_step(network%reach_data(i), network%time, network%dT)
         END DO
 
-        DO i=1,network%num_junctions
-            call update_junction_values(network%reach_junctions(i))
-        END DO
+        !DO i=1,network%num_junctions
+        !    call update_junction_values(network%reach_junctions(i))
+        !END DO
 
         ! Advance time
         network%time=network%time+network%dT
@@ -49,7 +49,7 @@ MODULE network_solver
 
         ! Loop over all xsections on all reaches and get the new timestep
         DO i=1,network%num_reaches
-            DO j=1, network%reach_data(i)%xsect_count
+            DO j=1, network%reach_data(i)%xsect_count-1
                 ! 1D Velocity
                 vel=network%reach_data(i)%Discharge(j)/max(network%reach_data(i)%Area(j), small_positive_real)
                 ! Gravity wavespeed = sqrt( g * mean_depth)
@@ -157,7 +157,7 @@ MODULE network_solver
 
         ! Assume the upstream/downstream volumes are 'half as long' as other
         ! volumes, so that the reach still ends at the bounding x-sections
-        delX_v = (/0.5*delX(2),  0.5_dp*(delX(2:n-1) + delX(3:n)  ), 0.5_dp*delX(n) /) 
+        delX_v = (/0.5*delX(2),  0.5_dp*(delX(2:n-1) + delX(3:n)  ), 0.5_dp*delX(n-1) /) 
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
@@ -174,7 +174,7 @@ MODULE network_solver
         dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
 
         convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag  
-        slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(2:n)*dry_flag(1:n-1)
+        slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
         ! Compute Q predictor with implicit friction
@@ -197,11 +197,15 @@ MODULE network_solver
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
 
+        !print*, 'PREDICTOR VARIABLES'
+        !print*, Area_pred
+        !print*, reach_data%Stage(1:n)
+
         ! Back-calculate stage/width/drag
         DO i=1,n
             Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
             Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
-            Drag1D_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'drag1D')
+            Drag1D_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'drag_1D')
         END DO
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -215,7 +219,7 @@ MODULE network_solver
         dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
 
         convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
-        slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(2:n)*dry_flag(2:n)
+        slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         
         ! Compute Q corrector with implicit friction
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
@@ -242,17 +246,23 @@ MODULE network_solver
 
         ! COULD POSSIBLY APPLY BOUNDARY CONDITIONS HERE??
         ! FIXME: Overspecified, not exactly conservative, etc
-        reach_data%Area(n) = reach_data%Upstream_boundary%eval(t+delT, 'area')
-        reach_data%Discharge(n) = reach_data%Upstream_boundary%eval(t+delT, 'discharge')
-        reach_data%Area(1) = reach_data%Downstream_boundary%eval(t+delT, 'area')
-        reach_data%Discharge(1) = reach_data%Downstream_boundary%eval(t+delT, 'discharge')
-        
+        reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+        reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+        reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
+        reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+        reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
+       
+        ! FIXME: Nangka Specific Hack for sub-critical boundaries
+        reach_data%Discharge(n) = reach_data%Discharge(n-1)
+        reach_data%Stage(1) = 2._dp*reach_data%Stage(2) - reach_data%Stage(3) 
+        reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
 
         ! Back-calculate Stage, width, 1D drag
         DO i=1,n
             reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')
             reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
-            reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag1D')
+            reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag_1D')
         END DO
         
         ! Compute 'conservative' discharge??
