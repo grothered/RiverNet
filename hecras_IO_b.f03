@@ -518,7 +518,7 @@ module hecras_IO
         ! Loop over every 'Boundary Location' line, and possibly suck the data into a reach boundary
         DO WHILE(io_test==0)
 
-            ! Find 'Boundary Location='
+            ! Find lines matching 'Boundary Location=' in the input file
             CALL next_match(input_file_unit_no, 'Boundary Location=', io_test,'(A18)')
             
             IF(io_test==0) THEN

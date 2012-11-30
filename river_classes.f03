@@ -1,37 +1,6 @@
 MODULE river_classes
 ! Classes for river type things
-    USE global_defs
-    USE one_d_relation_class
-    USE xsect_classes
-    USE reach_boundary_classes
-    IMPLICIT NONE
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !
-    !
-    !
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    TYPE REACH_DATA_TYPE
-        ! Type to hold reach information
-        CHARACTER(len=charlen):: names(2) ! Hold an array of names associated with the reach. Hecras has 2
-        
-        REAL(dp), ALLOCATABLE:: coordinates(:,:) ! Centreline coordinates
-        
-        ! Boundary information
-        CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
-       
-        ! XSECTIONAL INFORMATION 
-        INTEGER(ip):: xsect_count ! Number of xsections
-        TYPE(XSECT_DATA_TYPE), ALLOCATABLE:: xsects(:) ! Hold array of xsection information
-
-        !
-        ! 1D flow variables
-        ! Length of these can be equal (number of cross-sections)
-        ! So we can store the boundary conditions here as well, and implement them smoothly
-        !
-        REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
-                                Area(:), Width(:), &
-                                Drag_1D(:)
+    USE global_def                        Drag_1D(:)
  
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel

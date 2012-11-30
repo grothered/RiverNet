@@ -21,7 +21,7 @@ PROGRAM main
     call read_hecras_boundary_conditions(input_boundary_file, network) 
     
     ! Set the initial conditions
-    print*, 'Warning -- setting initial conditions in a crazy way'
+    print*, 'Warning -- setting initial conditions in a crazy way -- FIXME:'
     N=size(network%reach_data(1)%Stage)
     DO i=1,N
         ! Depth of 1m
