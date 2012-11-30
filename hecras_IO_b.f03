@@ -490,12 +490,12 @@ module hecras_IO
     END SUBROUTINE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE read_hecras_boundary_conditions(input_boundary_file, network, print_output)
+    SUBROUTINE read_hecras_boundary_conditions(input_boundary_file, network)
         ! Read a hecras .uXX boundary conditions file into the network object
 
         CHARACTER(len=charlen), INTENT(IN):: input_boundary_file
         TYPE(network_data_type), INTENT(INOUT):: network
-        LOGICAL, INTENT(IN):: print_output
+        !LOGICAL, INTENT(IN):: print_output
 
         ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length

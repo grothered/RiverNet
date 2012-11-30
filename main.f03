@@ -17,7 +17,7 @@ PROGRAM main
     ! Set the initial conditions
 
     ! Set the boundary conditions
-    call read_hecras_boundary_conditions(input_boundary_file, network, print_output=.TRUE.) 
+    call read_hecras_boundary_conditions(input_boundary_file, network) 
 
     ! Run the simulation
     !call evolve_hydraulics(network)
