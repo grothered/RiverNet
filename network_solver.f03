@@ -142,6 +142,7 @@ MODULE network_solver
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
+        REAL(dp):: Qcon
 
         n=reach_data%xsect_count
 
@@ -197,6 +198,24 @@ MODULE network_solver
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
 
+        ! NOW, enforce a no-drying limit on Q_pred
+        ! outgoing_flux < cell volume
+        ! Try to prevent negative depths by ensuring that 
+        ! 'Outflow volume <= volume in cell'
+        DO i=1,n-1
+            Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
+            IF(Qcon>0._dp) THEN
+                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)) THEN
+                    Q_pred(i) = 2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT -small_positive_real
+                END IF
+            ELSE
+                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)) THEN
+                    Q_pred(i) = - (2.0_dp*reach_data%Area(i+1)*delX_v(i+1) - reach_data%Discharge(i+1)*dT-small_positive_real)
+                END IF
+            END IF
+        END DO
+
+        print*, 'Pred_done'
         !print*, 'PREDICTOR VARIABLES'
         !print*, Area_pred
         !print*, reach_data%Stage(1:n)
@@ -238,6 +257,7 @@ MODULE network_solver
              END IF
         END DO
 
+        print*, 'Cor_done'
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
