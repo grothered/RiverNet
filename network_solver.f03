@@ -198,7 +198,7 @@ MODULE network_solver
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
 
-        ! NOW, enforce a no-drying limit on Q_pred
+        ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
         ! Try to prevent negative depths by ensuring that 
         ! 'Outflow volume <= volume in cell'
@@ -206,11 +206,11 @@ MODULE network_solver
             Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
             IF(Qcon>0._dp) THEN
                 IF(Qcon*dT> reach_data%Area(i)*delX_v(i)) THEN
-                    Q_pred(i) = 2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT -small_positive_real
+                    Q_pred(i) = (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT -small_positive_real
                 END IF
             ELSE
                 IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)) THEN
-                    Q_pred(i) = - (2.0_dp*reach_data%Area(i+1)*delX_v(i+1) - reach_data%Discharge(i+1)*dT-small_positive_real)
+                    Q_pred(i) = - ((2.0_dp*reach_data%Area(i+1)*delX_v(i+1) - reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
                 END IF
             END IF
         END DO
@@ -263,7 +263,7 @@ MODULE network_solver
 
         reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
-
+        
         ! COULD POSSIBLY APPLY BOUNDARY CONDITIONS HERE??
         ! FIXME: Overspecified, not exactly conservative, etc
         reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
@@ -284,6 +284,26 @@ MODULE network_solver
             reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
             reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag_1D')
         END DO
+        
+
+        ! NOW, enforce a no-drying limit on Area
+        ! outgoing_flux < cell volume
+        ! Try to prevent negative depths on the next A_pred, by ensuring that 
+        ! 'Outflow volume <= volume in cell'. 
+        ! FIXME: Note: this assumes no change in dT, which might not be realistic
+        DO i=2,n-1
+            Qcon = reach_data%Discharge(i+1) 
+            IF(Qcon>0._dp) THEN
+                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)) THEN
+                    reach_data%Discharge(i+1) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
+                END IF
+            ELSE
+                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)) THEN
+                    reach_data%Discharge(i+1) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
+                END IF
+            END IF
+        END DO
+
         
         ! Compute 'conservative' discharge??
 

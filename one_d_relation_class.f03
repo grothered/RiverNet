@@ -85,7 +85,7 @@ MODULE one_d_relation_class
         IF(predictor<S_A(1,2)) THEN
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is < min(values of this predictor) on this cross-section"
-            print*, predictor,  predictor_varname, output_varname
+            print*, predictor, ' ', S_A(1,2), ' ', predictor_varname,' ', output_varname
             stop
         END IF
 

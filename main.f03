@@ -39,7 +39,7 @@ PROGRAM main
 
     ! Run the simulation
     DO i=1,10
-        print*, '## Step ', i, '; Time ', network%time
+        print*, '## Step ', i, '; Time ', network%time, '; dT:', network%dT
         call evolve_hydraulics(network)
         write(N,*) network%reach_data(1)%Stage
         write(N,*) network%reach_data(1)%Area
