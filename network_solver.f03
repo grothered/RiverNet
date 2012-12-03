@@ -366,8 +366,11 @@ MODULE network_solver
         END DO
 
         ! Compute 'conservative' discharge, which is much better behaved than
-        ! pointwise discharge
+        ! pointwise discharge -- it exists at points (i+1/2)
         reach_data%Discharge_con=(/  (Q_pred(1:n-1) + Discharge_old(2:n))*0.5_dp , Q_pred(n) /)
+        !reach_data%Discharge = (/ reach_data%Discharge(1), &
+        !                          0.5_dp*(reach_data%Discharge_con(1:n-1) + reach_data%Discharge_con(2:n)), &
+        !                          reach_data%Discharge(n) /)
 
     END SUBROUTINE one_mccormack_step
 END MODULE network_solver
