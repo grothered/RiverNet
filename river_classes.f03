@@ -31,7 +31,7 @@ MODULE river_classes
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
                                 Area(:), Width(:), &
-                                Drag_1D(:)!, Volume(:)
+                                Drag_1D(:), Discharge_con(:)
         ! size(Volume) = size(Stage)-1
  
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
@@ -132,7 +132,8 @@ MODULE river_classes
 
         N=reach%xsect_count
 
-        ALLOCATE(reach%Stage(N), reach%Discharge(N), reach%Area(N), reach%Width(N), reach%Drag_1D(N))
+        ALLOCATE(reach%Stage(N), reach%Discharge(N), reach%Area(N), reach%Width(N), reach%Drag_1D(N), &
+                 reach%Discharge_con(N))
 
     END SUBROUTINE allocate_1d_vars
 

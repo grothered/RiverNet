@@ -142,9 +142,11 @@ MODULE network_solver
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
-        REAL(dp):: Qcon
+        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count)
 
+        ! Predefine some useful vars
         n=reach_data%xsect_count
+        Discharge_old=reach_data%Discharge
 
         ! Use channel delX as temporary delX here
 
@@ -191,6 +193,14 @@ MODULE network_solver
         ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
+
+        ! Try to enforce 'conservative' discharge boundaries
+        ! These should ensure that inflows have the desired values
+        ! Idea: 0.5*(Qpred(1) + Qlast(2)) = Desired discharge at time + dT/2, at 1+1/2
+        Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
+        Q_pred(1) = ( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
+                    reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
+                    - reach_data%Discharge(2)
 
         ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
@@ -337,11 +347,6 @@ MODULE network_solver
         reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
                                    reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
 
-        ! FIXME: HACK
-        ! Limit velocity 5m/s
-        !reach_data%Discharge=merge(reach_data%Discharge, 5.0_dp*reach_data%Area*sign(1.0_dp, reach_data%Discharge),&
-        !                            abs(reach_data%Discharge) < 5.0_dp*reach_data%Area)
-
         ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
         ! Try to prevent negative depths on the next A_pred, by ensuring that 
@@ -360,8 +365,9 @@ MODULE network_solver
             END IF
         END DO
 
-        ! Compute 'conservative' discharge??
-
+        ! Compute 'conservative' discharge, which is much better behaved than
+        ! pointwise discharge
+        reach_data%Discharge_con=(/  (Q_pred(1:n-1) + Discharge_old(2:n))*0.5_dp , Q_pred(n) /)
 
     END SUBROUTINE one_mccormack_step
 END MODULE network_solver

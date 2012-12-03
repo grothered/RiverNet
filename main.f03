@@ -43,7 +43,8 @@ PROGRAM main
             write(N,*) network%reach_data(1)%Area
             write(N,*) network%reach_data(1)%Area/network%reach_data(1)%Width
             write(N,*) network%reach_data(1)%Discharge
-            write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
+            write(N,*) network%reach_data(1)%Discharge_con
+            !write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
         END IF
         
         call evolve_hydraulics(network)
