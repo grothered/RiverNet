@@ -45,6 +45,7 @@ MODULE xsect_classes
 
         REAL(dp):: stage_protection=1000._dp ! FIXME: MAGIC NUMBER
         REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher, incremental_width 
+        REAL(dp):: incremental_drag_num, incremental_drag_denom, u_temp, d_temp, incremental_q, dy
 
         ! NOTE: PRESENTLY WE DO AN AREA COMPUTATION WHICH WORKS FOR XSECTIONS WITH
         ! INCREASING HORIZONTAL COORDINATE.
@@ -118,6 +119,19 @@ MODULE xsect_classes
             incremental_area=0._dp
             incremental_width=0._dp
 
+            ! For drag_1D, compute as integral( f/[8g]*u^2) / ([(Q/A)^2*width]*dbar)
+            ! where f/(8g) = n**2/(d**(1/3))
+            ! and U_bar = Q/A = integral(u*d)/integral(d) = integral(u*d) /[ width*dbar ]
+            ! Note that tau = rho * g * Sf*d = rho*f/8 * u^2
+            ! Since Sf is constant, we have
+            ! f/8 * u^2 scales with 'd'
+            ! For convenience, say f/8g * u^2 = d [i.e. Sf=1]
+            ! as drag_1D doesn't depend on Sf
+
+            incremental_drag_num=0._dp ! integral( f/[8g]*u*d ) 
+            incremental_q=0._dp
+            ! Assume without loss of generality u=d**(2/3) for manning
+
             stg=xsect%stage_etc_curve%x_y(i,1) ! shorthand
 
             ! Loop over the width of the xsection
@@ -129,23 +143,29 @@ MODULE xsect_classes
                     ! There is some wetness
                     IF(stg>max_bed) THEN
                         ! Full wetness: incremental_area += mean_depth*width
-                        incremental_area=incremental_area + & 
-                            (stg - 0.5*(max_bed+min_bed))*(xsect%yz(j+1,1) - xsect%yz(j,1))
-                        incremental_width=incremental_width + & 
-                            (xsect%yz(j+1,1) - xsect%yz(j,1))
+                        d_temp = (stg - 0.5_dp*(max_bed+min_bed))
+                        dy = (xsect%yz(j+1,1) - xsect%yz(j,1))
                     ELSE 
-                        ! Partial wetness: Compute triangular wetted area as 0.5 * height *base
-                        incremental_area = incremental_area + &
-                             0.5_dp*(stg - min_bed)* & 
-                             (xsect%yz(j+1,1) - xsect%yz(j,1))*(stg- min_bed)/(max_bed-min_bed)
-                        incremental_width = incremental_width + &
-                             (xsect%yz(j+1,1) - xsect%yz(j,1))*(stg- min_bed)/(max_bed-min_bed)
+                        ! Partial wetness: 
+                        d_temp = 0.5_dp*(stg - min_bed) ! Average depth in wet areas
+                        dy = (xsect%yz(j+1,1) - xsect%yz(j,1))*(stg- min_bed)/(max_bed-min_bed)
                     END IF
+                        incremental_area = incremental_area + d_temp*dy
+                        incremental_width = incremental_width + dy
+                        ! Drag1D ...
+                        ! Drag = manning
+                        u_temp = d_temp**(2._dp/3._dp)/xsect%roughness(j,1)
+                        ! Drag = friction_factor
+                        !u_temp = d_temp**(0.5_dp)/xsect%roughness(j,1)
+                        incremental_drag_num= incremental_drag_num + d_temp*dy
+                        incremental_q=incremental_q + u_temp*d_temp*dy
+
                 END IF
             END DO
             xsect%stage_etc_curve%x_y(i,2) = incremental_area 
             xsect%stage_etc_curve%x_y(i,3) = incremental_width
-            xsect%stage_etc_curve%x_y(i,4) = 0.1_dp ! FIXME
+            xsect%stage_etc_curve%x_y(i,4) = incremental_drag_num/(incremental_q**2)*incremental_area
+            !xsect%stage_etc_curve%x_y(i,4) = 0.03**2*incremental_width/incremental_area
             
         END DO
 
@@ -156,7 +176,7 @@ MODULE xsect_classes
                     (xsect%yz(j,1)-xsect%yz(1,1))*stage_protection
         xsect%stage_etc_curve%x_y(unique_stage_count+1,3) = &
                     max( (xsect%yz(j,1)-xsect%yz(1,1)), xsect%stage_etc_curve%x_y(unique_stage_count,3))
-        xsect%stage_etc_curve%x_y(unique_stage_count+1,4) = 0.01_dp
+        xsect%stage_etc_curve%x_y(unique_stage_count+1,4) = xsect%stage_etc_curve%x_y(unique_stage_count,4)
 
     END SUBROUTINE init_stage_etc_curve
 

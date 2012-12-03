@@ -123,6 +123,7 @@ MODULE river_classes
 
     END SUBROUTINE get_downstream_dists_from_xsections
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE allocate_1d_vars(reach)
         ! Routine to allocate 1D variables in the reach (e.g Stage / Discharge/ Area / Width ..)
         CLASS(reach_data_type), INTENT(INOUT)::reach
@@ -135,4 +136,27 @@ MODULE river_classes
 
     END SUBROUTINE allocate_1d_vars
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE set_initial_conditions(reach, depth_start, Q_start)
+        ! Quick routine to set initial depth = depth_start (above min bed elevation),
+        ! and initial_Q = Q_start
+        CLASS(reach_data_type), INTENT(INOUT):: reach
+        REAL(dp), INTENT(IN):: depth_start, Q_start
+
+        INTEGER(ip):: N, i
+        
+        N=size(reach%Stage)
+        DO i=1,N
+            ! Depth of 1m
+            reach%Stage(i)= minval(reach%xsects(i)%yz(:,2)) + depth_start
+            reach%Area(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                  reach%Stage(i), 'stage', 'area')
+            reach%Width(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                  reach%Stage(i), 'stage', 'width')
+            reach%Discharge(i) = Q_start
+            reach%Drag_1D(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                  reach%Stage(i), 'stage', 'drag_1D')
+        END DO
+
+    END SUBROUTINE set_initial_conditions
 END MODULE river_classes

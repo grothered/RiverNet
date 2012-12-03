@@ -152,11 +152,6 @@ MODULE network_solver
         delX = reach_data%downstream_dists(:,2)
         ! delX_v denotes the lengths of each 'volume', centred around each
         ! cross-section, with boundaries at the mid-point between cross-sections
-
-        ! Assume the upstream volume has upstream half-length equal to downstream half-length?
-        !delX_v = (/ 0.5_dp*(delX(1:n-1) + delX(2:n)  ), delX(n) /) 
-
-        ! Compute delX of 'volumes' with xsections at centre. 
         delX_v = (/0.5*delX(1),  0.5_dp*(delX(1:n-1) + delX(2:n)  ) /) 
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -225,8 +220,8 @@ MODULE network_solver
                     Q_pred(i) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
                 END IF
             ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i-1)*delX_v(i-1)-small_positive_real) THEN
-                    Q_pred(i) = -(reach_data%Area(i-1)*delX_v(i-1)/dT-small_positive_real)
+                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
+                    Q_pred(i) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
                 END IF
             END IF
 
@@ -311,7 +306,7 @@ MODULE network_solver
         reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
         
-        ! COULD POSSIBLY APPLY BOUNDARY CONDITIONS HERE??
+        ! APPLY BOUNDARY CONDITIONS HERE??
         ! FIXME: Overspecified, not exactly conservative, etc
         reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
         reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
@@ -344,8 +339,8 @@ MODULE network_solver
 
         ! FIXME: HACK
         ! Limit velocity 5m/s
-        reach_data%Discharge=merge(reach_data%Discharge, 5.0_dp*reach_data%Area*sign(1.0_dp, reach_data%Discharge),&
-                                    abs(reach_data%Discharge) < 5.0_dp*reach_data%Area)
+        !reach_data%Discharge=merge(reach_data%Discharge, 5.0_dp*reach_data%Area*sign(1.0_dp, reach_data%Discharge),&
+        !                            abs(reach_data%Discharge) < 5.0_dp*reach_data%Area)
 
         ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
