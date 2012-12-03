@@ -13,7 +13,7 @@ MODULE network_solver
 
         ! Update the timestep dT
         CALL update_timestep(network)
-        print*, 'NETWORK DT: ', network%dT
+        !print*, 'NETWORK DT: ', network%dT
         ! New boundary values for time t and t+delT -- the boundaries should store both 
         !CALL update_boundaries(network)
         
@@ -237,7 +237,7 @@ MODULE network_solver
         END DO
 
 
-        print*, 'Pred_done'
+        !print*, 'Pred_done'
         DO i=1,n
             IF(Area_pred(i)<0._dp) THEN
                 print*, 'Area_pred(', i,') is negative, ', Area_pred(i), reach_data%Discharge(i+1), reach_data%Discharge(i), &
@@ -292,7 +292,7 @@ MODULE network_solver
         END DO
 
         !Q_cor=merge(Q_cor, 0._dp*Q_cor, Area_cor/Width_pred > 1.0e-03)
-        print*, 'Cor_done'
+        !print*, 'Cor_done'
         DO i=1,n
             IF(Area_cor(i)<0._dp) THEN
                 print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
@@ -322,7 +322,7 @@ MODULE network_solver
         reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
 
         ! Velocity limit of 3m/s at boundary
-        reach_data%Area(1)=max(reach_data%Area(1), abs(reach_data%Discharge(1))/3.0_dp)
+        !reach_data%Area(1)=max(reach_data%Area(1), abs(reach_data%Discharge(1))/3.0_dp)
 
         ! Back-calculate Stage, width, 1D drag
         DO i=1,n

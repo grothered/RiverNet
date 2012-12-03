@@ -165,7 +165,6 @@ MODULE xsect_classes
             xsect%stage_etc_curve%x_y(i,2) = incremental_area 
             xsect%stage_etc_curve%x_y(i,3) = incremental_width
             xsect%stage_etc_curve%x_y(i,4) = incremental_drag_num/(incremental_q**2)*incremental_area
-            !xsect%stage_etc_curve%x_y(i,4) = 0.03**2*incremental_width/incremental_area
             
         END DO
 

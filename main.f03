@@ -30,19 +30,21 @@ PROGRAM main
     M=network%reach_data(1)%xsect_count
 
     ! Run the simulation
-    DO i=1,1000
-        print*, '## Step ', i, '; Time ', network%time, '; dT:', network%dT
-        print*, '   Q(1) = ', network%reach_data(1)%Discharge(1), ' Q(M) = ', network%reach_data(1)%Discharge(M)
-        print*, ' Drag_1D(1) * d_bar ', &
-                 network%reach_data(1)%Drag_1D(1)*network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
-        print*, 'd_bar(1) = ', network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
-
-
-        write(N,*) network%reach_data(1)%Stage
-        write(N,*) network%reach_data(1)%Area
-        write(N,*) network%reach_data(1)%Area/network%reach_data(1)%Width
-        write(N,*) network%reach_data(1)%Discharge
-        write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
+    DO i=1,40000
+        IF(mod(i,10).eq.0) THEN
+            print*, '## Step ', i, '; Time (hr) ', network%time/3600._dp, '; dT:', network%dT
+            print*, '   Q(1) = ', network%reach_data(1)%Discharge(1), ' Q(M) = ', network%reach_data(1)%Discharge(M)
+            print*, ' Drag_1D(1) * d_bar ', &
+                     network%reach_data(1)%Drag_1D(1)*network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
+            print*, 'd_bar(1) = ', network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
+    
+    
+            write(N,*) network%reach_data(1)%Stage
+            write(N,*) network%reach_data(1)%Area
+            write(N,*) network%reach_data(1)%Area/network%reach_data(1)%Width
+            write(N,*) network%reach_data(1)%Discharge
+            write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
+        END IF
         
         call evolve_hydraulics(network)
     END DO
