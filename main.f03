@@ -31,6 +31,8 @@ PROGRAM main
 
     ! Run the simulation
     DO i=1,40000
+
+        ! IO BLOCK
         IF(mod(i,10).eq.0) THEN
             print*, '## Step ', i, '; Time (hr) ', network%time/3600._dp, '; dT:', network%dT
             print*, '   Q(1) = ', network%reach_data(1)%Discharge(1), ' Q(M) = ', network%reach_data(1)%Discharge(M)
