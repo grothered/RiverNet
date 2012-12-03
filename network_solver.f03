@@ -51,13 +51,13 @@ MODULE network_solver
         DO i=1,network%num_reaches
             DO j=1, network%reach_data(i)%xsect_count-1
                 ! 1D Velocity
-                vel=network%reach_data(i)%Discharge(j)/max(network%reach_data(i)%Area(j), small_positive_real)
+                vel=network%reach_data(i)%Discharge(j)/(network%reach_data(i)%Area(j)+ small_positive_real)
                 ! Gravity wavespeed = sqrt( g * mean_depth)
                 grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/network%reach_data(i)%Width(j))**0.5_dp
                 local_wavespeed = abs(vel) + grav_wavespeed
 
                 ! FIXME: Check interpretation of downstream distances -- perhaps incorrect
-                local_dt = network%reach_data(i)%downstream_dists(j,2)/max(local_wavespeed, small_positive_real)
+                local_dt = network%reach_data(i)%downstream_dists(j,2)/(local_wavespeed + small_positive_real)
                 local_dt = local_dt*network%CFL
                 dT = min(dT, local_dt)
             END DO
@@ -156,9 +156,8 @@ MODULE network_solver
         ! Assume the upstream volume has upstream half-length equal to downstream half-length?
         !delX_v = (/ 0.5_dp*(delX(1:n-1) + delX(2:n)  ), delX(n) /) 
 
-        ! Assume the upstream/downstream volumes are 'half as long' as other
-        ! volumes, so that the reach still ends at the bounding x-sections
-        delX_v = (/0.5*delX(2),  0.5_dp*(delX(2:n-1) + delX(3:n)  ), 0.5_dp*delX(n-1) /) 
+        ! Compute delX of 'volumes' with xsections at centre. 
+        delX_v = (/0.5*delX(1),  0.5_dp*(delX(1:n-1) + delX(2:n)  ) /) 
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
@@ -202,20 +201,57 @@ MODULE network_solver
         ! outgoing_flux < cell volume
         ! Try to prevent negative depths by ensuring that 
         ! 'Outflow volume <= volume in cell'
+        ! 0.5*(Q_pred(i)+reach_data%Discharge(i+1))*dT <= Area(i)*delX_v(i)
         DO i=1,n-1
             Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
             IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)) THEN
+                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
                     Q_pred(i) = (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT -small_positive_real
                 END IF
             ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)) THEN
-                    Q_pred(i) = - ((2.0_dp*reach_data%Area(i+1)*delX_v(i+1) - reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
+                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
+                    Q_pred(i) =-((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)-reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
                 END IF
             END IF
         END DO
 
+        ! NOW, enforce a no-drying limit on Area_cor
+        ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
+        ! or < - volume in cell i (if Q_pred is negative)
+        DO i=2,n-1
+            Qcon = Q_pred(i)
+            IF(Qcon>0._dp) THEN
+                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
+                    Q_pred(i) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
+                END IF
+            ELSE
+                IF(abs(Qcon)*dT> reach_data%Area(i-1)*delX_v(i-1)-small_positive_real) THEN
+                    Q_pred(i) = -(reach_data%Area(i-1)*delX_v(i-1)/dT-small_positive_real)
+                END IF
+            END IF
+
+            ! Here, we check for changes in the sign of Q_pred. This could
+            ! voilate the no-dry logic above. Can fix by setting 1 value to zero
+            IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i-1)) ) THEN
+                IF(abs(Q_pred(i))<abs(Q_pred(i-1))) THEN
+                    Q_pred(i)=0._dp
+                ELSE
+                    Q_pred(i-1)=0._dp
+                END IF
+            END IF
+        END DO
+
+
         print*, 'Pred_done'
+        DO i=1,n
+            IF(Area_pred(i)<0._dp) THEN
+                print*, 'Area_pred(', i,') is negative, ', Area_pred(i), reach_data%Discharge(i+1), reach_data%Discharge(i), &
+                                      reach_data%Area(i), (dT/delX_v(i))*(reach_data%Discharge(i+1)-reach_data%Discharge(i))
+                stop
+            END IF
+        END DO
+
+
         !print*, 'PREDICTOR VARIABLES'
         !print*, Area_pred
         !print*, reach_data%Stage(1:n)
@@ -226,6 +262,9 @@ MODULE network_solver
             Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
             Drag1D_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'drag_1D')
         END DO
+
+        ! Wet dry hack
+        Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/Width_pred > reach_data%wet_dry_depth)
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! CORRECTOR STEP
@@ -257,7 +296,15 @@ MODULE network_solver
              END IF
         END DO
 
+        !Q_cor=merge(Q_cor, 0._dp*Q_cor, Area_cor/Width_pred > 1.0e-03)
         print*, 'Cor_done'
+        DO i=1,n
+            IF(Area_cor(i)<0._dp) THEN
+                print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
+                                                    (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1))
+                stop
+            END IF
+        END DO
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
@@ -275,36 +322,49 @@ MODULE network_solver
        
         ! FIXME: Nangka Specific Hack for sub-critical boundaries
         reach_data%Discharge(n) = reach_data%Discharge(n-1)
-        reach_data%Stage(1) = 2._dp*reach_data%Stage(2) - reach_data%Stage(3) 
+        reach_data%Stage(1) = max(2._dp*reach_data%Stage(2) - reach_data%Stage(3), &
+                                  minval(reach_data%xsects(1)%yz(:,2))+reach_data%wet_dry_depth) 
         reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+
+        ! Velocity limit of 3m/s at boundary
+        reach_data%Area(1)=max(reach_data%Area(1), abs(reach_data%Discharge(1))/3.0_dp)
 
         ! Back-calculate Stage, width, 1D drag
         DO i=1,n
+            !print*, 'bc', i
             reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')
             reach_data%Width(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'width')
             reach_data%Drag_1D(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'drag_1D')
         END DO
         
 
+        ! Wet dry hack
+        reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
+                                   reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
+
+        ! FIXME: HACK
+        ! Limit velocity 5m/s
+        reach_data%Discharge=merge(reach_data%Discharge, 5.0_dp*reach_data%Area*sign(1.0_dp, reach_data%Discharge),&
+                                    abs(reach_data%Discharge) < 5.0_dp*reach_data%Area)
+
         ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
         ! Try to prevent negative depths on the next A_pred, by ensuring that 
         ! 'Outflow volume <= volume in cell'. 
         ! FIXME: Note: this assumes no change in dT, which might not be realistic
-        DO i=2,n-1
+        DO i=1,n-1
             Qcon = reach_data%Discharge(i+1) 
             IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)) THEN
+                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
                     reach_data%Discharge(i+1) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
                 END IF
             ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)) THEN
+                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
                     reach_data%Discharge(i+1) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
                 END IF
             END IF
         END DO
 
-        
         ! Compute 'conservative' discharge??
 
 

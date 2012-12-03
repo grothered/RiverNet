@@ -31,14 +31,15 @@ PROGRAM main
         network%reach_data(1)%Width(i) = network%reach_data(1)%xsects(i)%stage_etc_curve%eval( &
                                               network%reach_data(1)%Stage(i), 'stage', 'width')
         network%reach_data(1)%Discharge(i) = 0._dp 
-        network%reach_data(1)%Drag_1D(i) = 0.01_dp 
+        network%reach_data(1)%Width(i) = network%reach_data(1)%xsects(i)%stage_etc_curve%eval( &
+                                              network%reach_data(1)%Stage(i), 'stage', 'drag_1D')
     END DO
     print*, 'Have set initial conditions'
 
     open(newunit=N, file='output.txt')
 
     ! Run the simulation
-    DO i=1,10
+    DO i=1,1000
         print*, '## Step ', i, '; Time ', network%time, '; dT:', network%dT
         call evolve_hydraulics(network)
         write(N,*) network%reach_data(1)%Stage

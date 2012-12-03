@@ -39,7 +39,7 @@ MODULE river_classes
         REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
 
         ! Depth at which we set velocity/fluxes to zero to prevent bad solver behaviour
-        REAL(dp):: wet_dry_depth=1.0e-03
+        REAL(dp):: wet_dry_depth=wet_dry_depth
 
 
         contains

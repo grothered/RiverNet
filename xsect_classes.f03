@@ -145,7 +145,7 @@ MODULE xsect_classes
             END DO
             xsect%stage_etc_curve%x_y(i,2) = incremental_area 
             xsect%stage_etc_curve%x_y(i,3) = incremental_width
-            xsect%stage_etc_curve%x_y(i,4) = 0.01_dp ! FIXME
+            xsect%stage_etc_curve%x_y(i,4) = 0.1_dp ! FIXME
             
         END DO
 

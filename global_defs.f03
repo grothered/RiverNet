@@ -17,6 +17,8 @@ MODULE global_defs
 
     real(dp), PARAMETER, PUBLIC:: small_positive_real=1.0e-10_dp
 
-    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.0
+    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=0.999
+    
+    real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03
 
 END MODULE global_defs
