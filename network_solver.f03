@@ -181,7 +181,7 @@ MODULE network_solver
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2._dp))*reach_data%Drag_1D(1:n-1) )
         DO i=1,n-1
-             IF(drag_factor(i) > 0._dp) THEN
+             IF(abs(drag_factor(i)) > 0._dp) THEN
                 Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
              ELSE
                 ! Friction is negligible
@@ -284,7 +284,7 @@ MODULE network_solver
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
         drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*Drag1D_pred(2:n) )
         DO i=2,n
-             IF(drag_factor(i) > 0._dp) THEN
+             IF(abs(drag_factor(i)) > 0._dp) THEN
                 Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
              ELSE
                 ! Friction is negligible
