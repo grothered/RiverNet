@@ -142,7 +142,7 @@ MODULE network_solver
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
-        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count)
+        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -198,9 +198,13 @@ MODULE network_solver
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred(1) + Qlast(2)) = Desired discharge at time + dT/2, at 1+1/2
         Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
-        Q_pred(1) = ( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
+        !Q_pred(1) = ( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
+        !            reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
+        !            - reach_data%Discharge(2)
+        Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                     reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
-                    - reach_data%Discharge(2)
+                    - reach_data%Discharge(1)
+
 
         ! NOW, enforce a no-drying limit on Area
         ! outgoing_flux < cell volume
@@ -223,7 +227,7 @@ MODULE network_solver
         ! NOW, enforce a no-drying limit on Area_cor
         ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
         ! or < - volume in cell i (if Q_pred is negative)
-        DO i=2,n-1
+        DO i=1,n-1
             Qcon = Q_pred(i)
             IF(Qcon>0._dp) THEN
                 IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
@@ -237,11 +241,11 @@ MODULE network_solver
 
             ! Here, we check for changes in the sign of Q_pred. This could
             ! voilate the no-dry logic above. Can fix by setting 1 value to zero
-            IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i-1)) ) THEN
-                IF(abs(Q_pred(i))<abs(Q_pred(i-1))) THEN
+            IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i+1)) ) THEN
+                IF(abs(Q_pred(i))<abs(Q_pred(i+1))) THEN
                     Q_pred(i)=0._dp
                 ELSE
-                    Q_pred(i-1)=0._dp
+                    Q_pred(i+1)=0._dp
                 END IF
             END IF
         END DO
@@ -277,6 +281,8 @@ MODULE network_solver
         ! Compute Area corrector
         Area_cor(2:n) = reach_data%Area(2:n) -dT/delX_v(2:n)*&
                           (Q_pred(2:n) - Q_pred(1:n-1))
+        ! Discharge Conservative boundary treatment.
+        Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
 
         ! Wet-dry flag
         dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
@@ -313,23 +319,25 @@ MODULE network_solver
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
-        reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
+        !reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
-        
+       
+        reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
         ! APPLY BOUNDARY CONDITIONS HERE??
         ! FIXME: Overspecified, not exactly conservative, etc
         reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
         reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
         reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+
         reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
         reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
         reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
        
         ! FIXME: Nangka Specific Hack for sub-critical boundaries
         reach_data%Discharge(n) = reach_data%Discharge(n-1)
-        reach_data%Stage(1) = max(2._dp*reach_data%Stage(2) - reach_data%Stage(3), &
-                                  minval(reach_data%xsects(1)%yz(:,2))+reach_data%wet_dry_depth) 
-        reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+        !reach_data%Stage(1) = max(2._dp*reach_data%Stage(2) - reach_data%Stage(3), &
+        !                          minval(reach_data%xsects(1)%yz(:,2))+reach_data%wet_dry_depth) 
+        !reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
 
         ! Velocity limit of 3m/s at boundary
         !reach_data%Area(1)=max(reach_data%Area(1), abs(reach_data%Discharge(1))/3.0_dp)
