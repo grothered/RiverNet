@@ -45,7 +45,10 @@ MODULE network_solver
         REAL(dp):: dT, local_wavespeed, local_dt, vel, grav_wavespeed
 
         ! Predefine timestep
-        dT = maximum_allowed_timestep 
+        dT=maximum_allowed_timestep
+        !dT = min(maximum_allowed_timestep , network%dT*max_timestep_increase)
+        ! Note that this relies on dT being initialised to max_allowed_timestep
+        
 
         ! Loop over all xsections on all reaches and get the new timestep
         DO i=1,network%num_reaches
@@ -142,7 +145,7 @@ MODULE network_solver
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
-        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero
+        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -325,16 +328,22 @@ MODULE network_solver
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
         ! APPLY BOUNDARY CONDITIONS HERE??
         ! FIXME: Overspecified, not exactly conservative, etc
+
+        ! Downstream: Prefer Stage, subcritical (swap discharge '!' for supercritical)
         reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
         reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-        reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        !reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        reach_data%Discharge(n) = reach_data%Discharge(n-1)
 
-        reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
-        reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+        ! Upstream: Prefer_Q, subcritical (uncomment Stage/Area for supercritical)
+        ! Note that the stage is automatically affected by the discharge
+        ! boundary, thanks to the Qpred_zero treatment
+        !reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
+        !reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
         reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
        
         ! FIXME: Nangka Specific Hack for sub-critical boundaries
-        reach_data%Discharge(n) = reach_data%Discharge(n-1)
+        !reach_data%Discharge(n) = reach_data%Discharge(n-1)
         !reach_data%Stage(1) = max(2._dp*reach_data%Stage(2) - reach_data%Stage(3), &
         !                          minval(reach_data%xsects(1)%yz(:,2))+reach_data%wet_dry_depth) 
         !reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
@@ -360,15 +369,19 @@ MODULE network_solver
         ! Try to prevent negative depths on the next A_pred, by ensuring that 
         ! 'Outflow volume <= volume in cell'. 
         ! FIXME: Note: this assumes no change in dT, which might not be realistic
+        !timestep_increase_buffer=1.0_dp/max_timestep_increase ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
+        timestep_increase_buffer=1.0_dp
         DO i=1,n-1
             Qcon = reach_data%Discharge(i+1) 
             IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                    reach_data%Discharge(i+1) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
+                IF(Qcon*dT> (reach_data%Area(i)*delX_v(i)-small_positive_real)*timestep_increase_buffer) THEN
+                    reach_data%Discharge(i+1) = &
+                          max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
                 END IF
             ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                    reach_data%Discharge(i+1) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
+                IF(abs(Qcon)*dT> (reach_data%Area(i+1)*delX_v(i+1)-small_positive_real)*timestep_increase_buffer) THEN
+                    reach_data%Discharge(i+1) = &
+                          -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)*timestep_increase_buffer
                 END IF
             END IF
         END DO
