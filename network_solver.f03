@@ -320,7 +320,7 @@ MODULE network_solver
         reach_data%Width(n-1) = reach_data%xsects(n-1)%stage_etc_curve%eval(reach_data%Area(n-1), 'area', 'width')
 
         ! Downstream. Check if flow is sub or super critical
-        IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > (reach_data%Discharge(n-1)/reach_data%Area(n-1))**2 ) THEN
+        !IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > (reach_data%Discharge(n-1)/reach_data%Area(n-1))**2 ) THEN
             ! Subcritical boundary
             IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
                 ! Impose stage, extrapolate discharge
@@ -332,15 +332,15 @@ MODULE network_solver
                 reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
             END IF
     
-        ELSE
-            ! Supercritical boundary -- impose everything
-            reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
-            reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-            reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
-        END IF
+        !ELSE
+        !    ! Supercritical boundary -- impose everything -- FIXME: This may have mass conservation issues
+        !    reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+        !    reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+        !    reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        !END IF
 
         ! Upstream. Check if flow is sub or super critical
-        IF(gravity*reach_data%Area(2)/reach_data%Width(2) > (reach_data%Discharge(2)/reach_data%Area(2))**2 ) THEN
+        !IF(gravity*reach_data%Area(2)/reach_data%Width(2) > (reach_data%Discharge(2)/reach_data%Area(2))**2 ) THEN
             ! Subcritical boundary
             IF(reach_data%Upstream_boundary%compute_method=='stage') THEN
                 ! Impose stage, extrapolate discharge
@@ -352,12 +352,12 @@ MODULE network_solver
                 reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
             END IF
     
-        ELSE
-            ! Supercritical boundary -- impose everything
-            reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
-            reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-            reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
-        END IF
+        !ELSE
+        !    ! Supercritical boundary -- impose everything -- FIXME: This may have mass conservation issues
+        !    reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
+        !    reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+        !    reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
+        !END IF
        
         ! Back-calculate Stage, width, 1D drag
         DO i=1,n
