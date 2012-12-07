@@ -167,8 +167,6 @@ MODULE network_solver
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
-        !Vol_pred(1:n-1) = reach_data%Volume(1:n-1) -dT*&
-        !                  (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
         dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
@@ -201,9 +199,6 @@ MODULE network_solver
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred(1) + Qlast(2)) = Desired discharge at time + dT/2, at 1+1/2
         Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
-        !Q_pred(1) = ( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
-        !            reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
-        !            - reach_data%Discharge(2)
         Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                     reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
                     - reach_data%Discharge(1)
@@ -264,10 +259,6 @@ MODULE network_solver
         END DO
 
 
-        !print*, 'PREDICTOR VARIABLES'
-        !print*, Area_pred
-        !print*, reach_data%Stage(1:n)
-
         ! Back-calculate stage/width/drag
         DO i=1,n
             Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
@@ -310,8 +301,6 @@ MODULE network_solver
              END IF
         END DO
 
-        !Q_cor=merge(Q_cor, 0._dp*Q_cor, Area_cor/Width_pred > 1.0e-03)
-        !print*, 'Cor_done'
         DO i=1,n
             IF(Area_cor(i)<0._dp) THEN
                 print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
@@ -322,9 +311,7 @@ MODULE network_solver
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
-        !reach_data%Area(2:n-1)= 0.5_dp*(Area_pred(2:n-1) + Area_cor(2:n-1))
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
-       
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
 
         ! APPLY BOUNDARY CONDITIONS HERE
@@ -333,7 +320,7 @@ MODULE network_solver
         reach_data%Width(n-1) = reach_data%xsects(n-1)%stage_etc_curve%eval(reach_data%Area(n-1), 'area', 'width')
 
         ! Downstream. Check if flow is sub or super critical
-        IF(gravity*reach_data%Area(2)/reach_data%Width(2) > abs(reach_data%Discharge(2))/reach_data%Area(2) ) THEN
+        IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > (reach_data%Discharge(n-1)/reach_data%Area(n-1))**2 ) THEN
             ! Subcritical boundary
             IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
                 ! Impose stage, extrapolate discharge
@@ -353,7 +340,7 @@ MODULE network_solver
         END IF
 
         ! Upstream. Check if flow is sub or super critical
-        IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > abs(reach_data%Discharge(n-1))/reach_data%Area(n-1) ) THEN
+        IF(gravity*reach_data%Area(2)/reach_data%Width(2) > (reach_data%Discharge(2)/reach_data%Area(2))**2 ) THEN
             ! Subcritical boundary
             IF(reach_data%Upstream_boundary%compute_method=='stage') THEN
                 ! Impose stage, extrapolate discharge
@@ -367,9 +354,9 @@ MODULE network_solver
     
         ELSE
             ! Supercritical boundary -- impose everything
-            reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
-            reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-            reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+            reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
+            reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+            reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
         END IF
        
         ! Back-calculate Stage, width, 1D drag
