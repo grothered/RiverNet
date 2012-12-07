@@ -562,6 +562,9 @@ module hecras_IO
                         ! Initialise last_search_index
                         this_boundary%Boundary_t_w_Q%last_search_index=1
 
+                        ! Set compute method
+                        this_boundary%compute_method='discharge'
+
                         print*, this_boundary%Boundary_t_w_Q%varnames
 
                         ! Make up time / water surface
@@ -612,6 +615,7 @@ module hecras_IO
                         print*, 'warning: setting the downstream boundary in a hacky way ...'
                         this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
                         this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        this_boundary%compute_method='stage'
                         allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
                         
                         ! Clean up

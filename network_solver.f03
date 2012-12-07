@@ -326,31 +326,52 @@ MODULE network_solver
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
        
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
-        ! APPLY BOUNDARY CONDITIONS HERE??
-        ! FIXME: Overspecified, not exactly conservative, etc
 
-        ! Downstream: Prefer Stage, subcritical (swap discharge '!' for supercritical)
-        reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
-        reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-        !reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
-        reach_data%Discharge(n) = reach_data%Discharge(n-1)
+        ! APPLY BOUNDARY CONDITIONS HERE
+        ! Need width to compute mean depth for characteristic speeds
+        reach_data%Width(2) = reach_data%xsects(2)%stage_etc_curve%eval(reach_data%Area(2), 'area', 'width')
+        reach_data%Width(n-1) = reach_data%xsects(n-1)%stage_etc_curve%eval(reach_data%Area(n-1), 'area', 'width')
 
-        ! Upstream: Prefer_Q, subcritical (uncomment Stage/Area for supercritical)
-        ! Note that the stage is automatically affected by the discharge
-        ! boundary, thanks to the Qpred_zero treatment
-        !reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
-        !reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-        reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
+        ! Downstream. Check if flow is sub or super critical
+        IF(gravity*reach_data%Area(2)/reach_data%Width(2) > abs(reach_data%Discharge(2))/reach_data%Area(2) ) THEN
+            ! Subcritical boundary
+            IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
+                ! Impose stage, extrapolate discharge
+                reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+                reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+                reach_data%Discharge(n) = reach_data%Discharge(n-1)
+            ELSE IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+                ! Impose discharge, area is already good
+                reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+            END IF
+    
+        ELSE
+            ! Supercritical boundary -- impose everything
+            reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+            reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+            reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        END IF
+
+        ! Upstream. Check if flow is sub or super critical
+        IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > abs(reach_data%Discharge(n-1))/reach_data%Area(n-1) ) THEN
+            ! Subcritical boundary
+            IF(reach_data%Upstream_boundary%compute_method=='stage') THEN
+                ! Impose stage, extrapolate discharge
+                reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
+                reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+                reach_data%Discharge(1) = reach_data%Discharge(2)
+            ELSE IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+                ! Impose discharge, area is already good
+                reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
+            END IF
+    
+        ELSE
+            ! Supercritical boundary -- impose everything
+            reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+            reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+            reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
+        END IF
        
-        ! FIXME: Nangka Specific Hack for sub-critical boundaries
-        !reach_data%Discharge(n) = reach_data%Discharge(n-1)
-        !reach_data%Stage(1) = max(2._dp*reach_data%Stage(2) - reach_data%Stage(3), &
-        !                          minval(reach_data%xsects(1)%yz(:,2))+reach_data%wet_dry_depth) 
-        !reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-
-        ! Velocity limit of 3m/s at boundary
-        !reach_data%Area(1)=max(reach_data%Area(1), abs(reach_data%Discharge(1))/3.0_dp)
-
         ! Back-calculate Stage, width, 1D drag
         DO i=1,n
             !print*, 'bc', i
