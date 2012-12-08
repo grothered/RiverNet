@@ -209,6 +209,8 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
 
+        LOGICAL:: wet_dry_hacks=.TRUE.
+
         ! Predefine some useful vars
         n=reach_data%xsect_count
         Discharge_old=reach_data%Discharge
@@ -231,7 +233,11 @@ MODULE network_solver
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
         ! Wet-dry flag
-        dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
+        IF(wet_dry_hacks) THEN
+            dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
+        ELSE
+            dry_flag=1.0_dp + 0._dp*reach_data%Area
+        END IF
 
         convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag  
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
@@ -266,50 +272,52 @@ MODULE network_solver
                     - reach_data%Discharge(1)
 
 
-        ! NOW, enforce a no-drying limit on Area
-        ! outgoing_flux < cell volume
-        ! Try to prevent negative depths by ensuring that 
-        ! 'Outflow volume <= volume in cell'
-        ! 0.5*(Q_pred(i)+reach_data%Discharge(i+1))*dT <= Area(i)*delX_v(i)
-        DO i=1,n-1
-            Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
-            IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                    Q_pred(i) = (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT -small_positive_real
-                END IF
-            ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                    Q_pred(i) =-((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)-reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
-                END IF
-            END IF
-        END DO
-
-        ! NOW, enforce a no-drying limit on Area_cor
-        ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
-        ! or < - volume in cell i (if Q_pred is negative)
-        DO i=1,n-1
-            Qcon = Q_pred(i)
-            IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                    Q_pred(i) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
-                END IF
-            ELSE
-                IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                    Q_pred(i) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
-                END IF
-            END IF
-
-            ! Here, we check for changes in the sign of Q_pred. This could
-            ! voilate the no-dry logic above. Can fix by setting 1 value to zero
-            IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i+1)) ) THEN
-                IF(abs(Q_pred(i))<abs(Q_pred(i+1))) THEN
-                    Q_pred(i)=0._dp
+        IF(wet_dry_hacks) THEN
+            ! NOW, enforce a no-drying limit on Area
+            ! outgoing_flux < cell volume
+            ! Try to prevent negative depths by ensuring that 
+            ! 'Outflow volume <= volume in cell'
+            ! 0.5*(Q_pred(i)+reach_data%Discharge(i+1))*dT <= Area(i)*delX_v(i)
+            DO i=1,n-1
+                Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
+                IF(Qcon>0._dp) THEN
+                    IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
+                        Q_pred(i) = (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT -small_positive_real
+                    END IF
                 ELSE
-                    Q_pred(i+1)=0._dp
+                    IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
+                        Q_pred(i) =-((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)-reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
+                    END IF
                 END IF
-            END IF
-        END DO
+            END DO
+            
 
+            ! NOW, enforce a no-drying limit on Area_cor
+            ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
+            ! or < - volume in cell i (if Q_pred is negative)
+            DO i=1,n-1
+                Qcon = Q_pred(i)
+                IF(Qcon>0._dp) THEN
+                    IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
+                        Q_pred(i) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
+                    END IF
+                ELSE
+                    IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
+                        Q_pred(i) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
+                    END IF
+                END IF
+
+                ! Here, we check for changes in the sign of Q_pred. This could
+                ! voilate the no-dry logic above. Can fix by setting 1 value to zero
+                IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i+1)) ) THEN
+                    IF(abs(Q_pred(i))<abs(Q_pred(i+1))) THEN
+                        Q_pred(i)=0._dp
+                    ELSE
+                        Q_pred(i+1)=0._dp
+                    END IF
+                END IF
+            END DO
+        END IF
 
         !print*, 'Pred_done'
         DO i=1,n
@@ -329,7 +337,9 @@ MODULE network_solver
         END DO
 
         ! Wet dry hack
-        Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/Width_pred > reach_data%wet_dry_depth)
+        IF(wet_dry_hacks) THEN
+            Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/Width_pred > reach_data%wet_dry_depth)
+        END IF
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! CORRECTOR STEP
@@ -341,7 +351,11 @@ MODULE network_solver
         Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
 
         ! Wet-dry flag
-        dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
+        IF(wet_dry_hacks) THEN
+            dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
+        ELSE
+            dry_flag=1.0_dp + 0._dp*Area_pred
+        END IF
 
         convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
@@ -389,36 +403,36 @@ MODULE network_solver
         
 
         ! Wet dry hack
-        reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
+        IF(wet_dry_hacks) THEN
+            reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
                                    reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
-
-        ! NOW, enforce a no-drying limit on Area
-        ! outgoing_flux < cell volume
-        ! Try to prevent negative depths on the next A_pred, by ensuring that 
-        ! 'Outflow volume <= volume in cell'. 
-        ! FIXME: Note: this assumes no change in dT, which might not be realistic
-        ! However, if dT is constant, then it can perhaps be justified with a
-        ! CFL condition type constraint
-        ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
-        ! Test 1 -- commented out this section, and re-ran nangka. Needed a
-        ! small piolet discharge, but I did not see any effect on the results otherwise
-        !timestep_increase_buffer=1.0_dp/max_timestep_increase 
-        timestep_increase_buffer=1.0_dp
-        DO i=1,n-1
-            Qcon = reach_data%Discharge(i+1) 
-            IF(Qcon>0._dp) THEN
-                IF(Qcon*dT> (reach_data%Area(i)*delX_v(i)-small_positive_real)*timestep_increase_buffer) THEN
-                    reach_data%Discharge(i+1) = &
-                          max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
+            ! NOW, enforce a no-drying limit on Area
+            ! outgoing_flux < cell volume
+            ! Try to prevent negative depths on the next A_pred, by ensuring that 
+            ! 'Outflow volume <= volume in cell'. 
+            ! FIXME: Note: this assumes no change in dT, which might not be realistic
+            ! However, if dT is constant, then it can perhaps be justified with a
+            ! CFL condition type constraint
+            ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
+            ! Test 1 -- commented out this section, and re-ran nangka. Needed a
+            ! small piolet discharge, but I did not see any effect on the results otherwise
+            !timestep_increase_buffer=1.0_dp/max_timestep_increase 
+            timestep_increase_buffer=1.0_dp
+            DO i=1,n-1
+                Qcon = reach_data%Discharge(i+1) 
+                IF(Qcon>0._dp) THEN
+                    IF(Qcon*dT> (reach_data%Area(i)*delX_v(i)-small_positive_real)*timestep_increase_buffer) THEN
+                        reach_data%Discharge(i+1) = &
+                              max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
+                    END IF
+                ELSE
+                    IF(abs(Qcon)*dT> (reach_data%Area(i+1)*delX_v(i+1)-small_positive_real)*timestep_increase_buffer) THEN
+                        reach_data%Discharge(i+1) = &
+                              -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)*timestep_increase_buffer
+                    END IF
                 END IF
-            ELSE
-                IF(abs(Qcon)*dT> (reach_data%Area(i+1)*delX_v(i+1)-small_positive_real)*timestep_increase_buffer) THEN
-                    reach_data%Discharge(i+1) = &
-                          -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)*timestep_increase_buffer
-                END IF
-            END IF
-        END DO
-
+            END DO
+        END IF
         ! Compute 'conservative' discharge, which is much better behaved than
         ! pointwise discharge -- it exists at points (i+1/2)
         reach_data%Discharge_con=(/  (Q_pred(1:n-1) + Discharge_old(2:n))*0.5_dp , Q_pred(n) /)
