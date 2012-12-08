@@ -1,0 +1,11 @@
+1) Set up code so you can easily make idealised domains / boundary conditions
+
+2) Fix boundary conditions -- impose critical flow for 'subcritical' type
+boundaries if needed, and define a supercritical boundary. This will require
+figuring out some mass conservation issues.
+
+3) Test some analytical solutions
+
+4) Figure out junctions
+
+5) Look at the effect of reversing the reach orientation on the results.
