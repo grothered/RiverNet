@@ -11,7 +11,7 @@ PROGRAM main
     CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
     CHARACTER(len=charlen):: input_boundary_file='./eg/test.u03'
 
-    INTEGER:: i, N, M
+    INTEGER:: i, N_flow, N_time, M
 
     ! Initiate the geometry by reading the data
     !call read_hecras_file(input_geometry_file, network, .TRUE.)
@@ -25,7 +25,8 @@ PROGRAM main
     print*, 'Have set initial conditions'
 
     ! Make an output file
-    open(newunit=N, file='output.txt')
+    open(newunit=N_flow, file='output.txt')
+    open(newunit=N_time, file='time.txt')
 
     M=network%reach_data(1)%xsect_count
 
@@ -41,15 +42,19 @@ PROGRAM main
             print*, 'd_bar(1) = ', network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
     
     
-            write(N,*) network%reach_data(1)%Stage
-            write(N,*) network%reach_data(1)%Area
-            write(N,*) network%reach_data(1)%Area/network%reach_data(1)%Width
-            write(N,*) network%reach_data(1)%Discharge
-            write(N,*) network%reach_data(1)%Discharge_con
+            write(N_flow,*) network%reach_data(1)%Stage
+            write(N_flow,*) network%reach_data(1)%Area
+            write(N_flow,*) network%reach_data(1)%Area/network%reach_data(1)%Width
+            write(N_flow,*) network%reach_data(1)%Discharge
+            write(N_flow,*) network%reach_data(1)%Discharge_con
+            write(N_time,*) network%time
             !write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
         END IF
         
         call evolve_hydraulics(network)
     END DO
+
+    close(N_flow)
+    close(N_time)
 
 END PROGRAM
