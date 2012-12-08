@@ -397,7 +397,12 @@ MODULE network_solver
         ! Try to prevent negative depths on the next A_pred, by ensuring that 
         ! 'Outflow volume <= volume in cell'. 
         ! FIXME: Note: this assumes no change in dT, which might not be realistic
-        !timestep_increase_buffer=1.0_dp/max_timestep_increase ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
+        ! However, if dT is constant, then it can perhaps be justified with a
+        ! CFL condition type constraint
+        ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
+        ! Test 1 -- commented out this section, and re-ran nangka. Needed a
+        ! small piolet discharge, but I did not see any effect on the results otherwise
+        !timestep_increase_buffer=1.0_dp/max_timestep_increase 
         timestep_increase_buffer=1.0_dp
         DO i=1,n-1
             Qcon = reach_data%Discharge(i+1) 
