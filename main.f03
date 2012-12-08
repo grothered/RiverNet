@@ -24,6 +24,10 @@ PROGRAM main
     call set_initial_conditions(network%reach_data(1), 1.0_dp, 0._dp)
     print*, 'Have set initial conditions'
 
+
+    print*, 'Reversing the reach data for sport'
+    call reverse_reach_order(network%reach_data(1))
+
     ! Make an output file
     open(newunit=N_flow, file='output.txt')
     open(newunit=N_time, file='time.txt')

@@ -160,4 +160,32 @@ MODULE river_classes
         END DO
 
     END SUBROUTINE set_initial_conditions
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE reverse_reach_order(reach)
+        CLASS(reach_data_type), INTENT(INOUT)::reach
+
+        INTEGER(ip):: i
+        CLASS(reach_boundary), ALLOCATABLE:: temp_reach_boundary
+
+        ! Reverse boundaries
+        allocate(temp_reach_boundary, source=reach%Upstream_boundary)
+        deallocate(reach%Upstream_boundary)
+        allocate(reach%Upstream_boundary, source=reach%Downstream_boundary)
+        deallocate(reach%Downstream_boundary)
+        allocate(reach%Downstream_boundary,source=temp_reach_boundary)
+
+        reach%xsects=reach%xsects( reach%xsect_count:1:-1 )
+        reach%Stage=reach%Stage( reach%xsect_count:1:-1 )
+        reach%Discharge=reach%Discharge( reach%xsect_count:1:-1 )
+        reach%Area=reach%Area( reach%xsect_count:1:-1 )
+        reach%Width=reach%Width( reach%xsect_count:1:-1 )
+        reach%Drag_1D=reach%Drag_1D( reach%xsect_count:1:-1 )
+        reach%Discharge_con=reach%Discharge_con( reach%xsect_count:1:-1 )
+      
+        DO i=1,size(reach%downstream_dists(1,:)) 
+            reach%downstream_dists(:,i) = reach%downstream_dists( reach%xsect_count:1:-1, i)
+        END DO
+
+    END SUBROUTINE reverse_reach_order
+
 END MODULE river_classes
