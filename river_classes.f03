@@ -167,12 +167,25 @@ MODULE river_classes
         INTEGER(ip):: i
         CLASS(reach_boundary), ALLOCATABLE:: temp_reach_boundary
 
+        SELECT TYPE(X => reach%Downstream_boundary)
+            TYPE IS(PHYSICAL_BOUNDARY)
+                print*, X%Boundary_t_w_Q%last_search_index
+        !print*, reach%Downstream_boundary%Boundary_t_w_Q%last_search_index
+        END SELECT
+
         ! Reverse boundaries
         allocate(temp_reach_boundary, source=reach%Upstream_boundary)
         deallocate(reach%Upstream_boundary)
         allocate(reach%Upstream_boundary, source=reach%Downstream_boundary)
         deallocate(reach%Downstream_boundary)
         allocate(reach%Downstream_boundary,source=temp_reach_boundary)
+        deallocate(temp_reach_boundary)
+        
+        SELECT TYPE(X => reach%Downstream_boundary)
+            TYPE IS(PHYSICAL_BOUNDARY)
+                print*, X%Boundary_t_w_Q%last_search_index
+        !print*, reach%Downstream_boundary%Boundary_t_w_Q%last_search_index
+        END SELECT
 
         reach%xsects=reach%xsects( reach%xsect_count:1:-1 )
         reach%Stage=reach%Stage( reach%xsect_count:1:-1 )

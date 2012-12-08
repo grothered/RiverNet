@@ -25,6 +25,12 @@ PROGRAM main
     print*, 'Have set initial conditions'
 
 
+    !SELECT TYPE(network%reach_data(1)%Upstream_boundary)
+    !TYPE IS(PHYSICAL_BOUNDARY)
+    !    print*, network%reach_data(1)%Upstream_boundary%Boundary_t_w_Q%last_search_index
+    !    !print*, network%reach_data(1)%Downstream_boundary%Boundary_t_w_Q%last_search_index
+    !END SELECT
+
     print*, 'Reversing the reach data for sport'
     call reverse_reach_order(network%reach_data(1))
 
