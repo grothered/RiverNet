@@ -88,7 +88,7 @@ MODULE network_solver
         reach_data%Width(n-1) = reach_data%xsects(n-1)%stage_etc_curve%eval(reach_data%Area(n-1), 'area', 'width')
 
         ! Downstream. Check if flow is sub or super critical
-        IF(gravity*reach_data%Area(n-1)/reach_data%Width(n-1) > (reach_data%Discharge(n-1)/reach_data%Area(n-1))**2 ) THEN
+        IF(gravity*reach_data%Area(n)/reach_data%Width(n) > (reach_data%Discharge(n)/reach_data%Area(n))**2 ) THEN
             ! Subcritical boundary
             IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
                 ! Impose stage, extrapolate discharge

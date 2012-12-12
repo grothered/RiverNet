@@ -98,7 +98,7 @@ MODULE xsect_classes
         ! Step 3: Assign values
 
         ! Set lowest x_y pair
-        xsect%stage_etc_curve%x_y(1,:) =(/ minval(xsect%yz(:,2)), 0._dp, 0._dp /) 
+        xsect%stage_etc_curve%x_y(1,1:num_vars) =(/ minval(xsect%yz(:,2)), 0._dp, 0._dp , 0._dp/) 
 
         ! Assign stage values
         unique_stage_count=1

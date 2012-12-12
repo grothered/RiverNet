@@ -577,8 +577,8 @@ module hecras_IO
                         DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
                             read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
                             lb = (j-1)*10 + 1
-                            ub = j*10
-                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:10))
+                            ub = min(j*10, bnd_data_length)
+                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:(ub-lb+1)))
                         END DO
 
                         ! Now, read the 'Qmin variable', and enforce the minimum discharge
