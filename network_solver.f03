@@ -116,6 +116,7 @@ MODULE network_solver
                     reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
                     
                     ! Note: Here we are lazy, in that we evaluate width at time tlast.      
+                    ! (Q/A)**2 = (g*A/B); A**3=Q**2*(B/g)
                     reach_data%Area(n) = (reach_data%Discharge(n)*(reach_data%Width(n)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
                 END IF
             END IF
