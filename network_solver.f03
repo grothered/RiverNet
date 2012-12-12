@@ -297,6 +297,7 @@ MODULE network_solver
         ! Try to enforce 'conservative' discharge boundaries
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
+        ! 0.5*(Q_pred(n) + Qb) = desired discharge at ...
         Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
         Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                     reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
