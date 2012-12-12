@@ -9,3 +9,6 @@ figuring out some mass conservation issues.
 4) Figure out junctions
 
 5) Look at the effect of reversing the reach orientation on the results.
+    12/12/2012 -- Seems to have an effect at the boundaries. Nangka case had
+    boundary artifacts with one orientation, none with the other. Both
+    orientations had similar computed flow in channel interior.
