@@ -180,13 +180,20 @@ MODULE river_classes
         deallocate(reach%Downstream_boundary)
         allocate(reach%Downstream_boundary,source=temp_reach_boundary)
         deallocate(temp_reach_boundary)
-        
-        SELECT TYPE(X => reach%Downstream_boundary)
-            TYPE IS(PHYSICAL_BOUNDARY)
-                print*, X%Boundary_t_w_Q%last_search_index
-        !print*, reach%Downstream_boundary%Boundary_t_w_Q%last_search_index
-        END SELECT
+       
 
+        ! Make sure 'Q' at the boundaries has the right sign
+        SELECT TYPE(x=> reach%Upstream_boundary)
+        TYPE IS(PHYSICAL_BOUNDARY)
+            x%Boundary_t_w_Q%x_y(:,3) = - x%Boundary_t_w_Q%x_y(:,3)
+        END SELECT 
+        
+        SELECT TYPE(x=> reach%Downstream_boundary)
+        TYPE IS(PHYSICAL_BOUNDARY)
+            x%Boundary_t_w_Q%x_y(:,3) = - x%Boundary_t_w_Q%x_y(:,3)
+        END SELECT 
+ 
+        ! Reverse xsections / stage information
         reach%xsects=reach%xsects( reach%xsect_count:1:-1 )
         reach%Stage=reach%Stage( reach%xsect_count:1:-1 )
         reach%Discharge=reach%Discharge( reach%xsect_count:1:-1 )
@@ -194,10 +201,14 @@ MODULE river_classes
         reach%Width=reach%Width( reach%xsect_count:1:-1 )
         reach%Drag_1D=reach%Drag_1D( reach%xsect_count:1:-1 )
         reach%Discharge_con=reach%Discharge_con( reach%xsect_count:1:-1 )
-      
+     
+        ! Reverse the 'delX' term 
         DO i=1,size(reach%downstream_dists(1,:)) 
-            reach%downstream_dists(:,i) = reach%downstream_dists( reach%xsect_count:1:-1, i)
+            reach%downstream_dists(1:(reach%xsect_count-1),i) = reach%downstream_dists( (reach%xsect_count-1):1:-1, i)
+            reach%downstream_dists(reach%xsect_count,i) = 0._dp
         END DO
+
+
 
     END SUBROUTINE reverse_reach_order
 

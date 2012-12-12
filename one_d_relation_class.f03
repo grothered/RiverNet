@@ -89,19 +89,25 @@ MODULE one_d_relation_class
             stop
         END IF
 
-
         l=size(S_A(:,1))
         IF(predictor > S_A(l,2)) THEN
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is > max(values of this predictor) on this cross-section"
-            print*, predictor,  predictor_varname, output_varname
+            print*, predictor, ' ',  predictor_varname, ' ', output_varname
             stop
         END IF
 
+        IF(predictor.NE.predictor) THEN
+            print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
+            print*, "predictor which is NaN"
+            print*, predictor, ' ', predictor_varname, ' ', output_varname
+            stop
+        END IF
         ! Main routine
 
         ! Find index just below our desired interpolation region
         lower_ind=-1
+        !print*, predictor, S_A(last_search_index,2)
         IF(predictor>=S_A(last_search_index,2)) THEN
             DO i= last_search_index+1, l
                 IF (predictor<S_A(i,2)) THEN
