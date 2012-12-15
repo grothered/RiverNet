@@ -235,8 +235,6 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
 
-        LOGICAL:: wet_dry_hacks=.TRUE.
-
         ! Predefine some useful vars
         n=reach_data%xsect_count
         Discharge_old=reach_data%Discharge
@@ -247,7 +245,7 @@ MODULE network_solver
         delX = reach_data%downstream_dists(:,2)
         ! delX_v denotes the lengths of each 'volume', centred around each
         ! cross-section, with boundaries at the mid-point between cross-sections
-        delX_v = (/0.5*delX(1),  0.5_dp*(delX(1:n-1) + delX(2:n)  ) /) 
+        delX_v = (/0.5_dp*delX(1),  0.5_dp*(delX(1:n-1) + delX(2:n)  ) /) 
 
         IF(minval(delX_v)<=0._dp) THEN
             print*, 'ERROR: min delX_v <= 0'
@@ -281,7 +279,7 @@ MODULE network_solver
                        -dT*gravity*Af(1:n-1)*slope(1:n-1) 
 
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
-        drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2._dp))*reach_data%Drag_1D(1:n-1) )
+        drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*reach_data%Drag_1D(1:n-1) )
         DO i=1,n-1
              IF(abs(drag_factor(i)) > 0._dp) THEN
                 Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
@@ -297,10 +295,20 @@ MODULE network_solver
         ! Try to enforce 'conservative' discharge boundaries
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
-        Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
-        Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
-                    reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
-                    - reach_data%Discharge(1)
+        IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+            Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
+        ELSE
+            ! velocity-type extrapolation
+            Q_pred(n) = reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
+        END IF
+
+        IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
+            Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
+                        reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
+                        - reach_data%Discharge(1)
+        ELSE
+            Qpred_zero = Q_pred(1)
+        END IF
 
 
         IF(wet_dry_hacks) THEN
@@ -313,15 +321,24 @@ MODULE network_solver
                 Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
                 IF(Qcon>0._dp) THEN
                     IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                        Q_pred(i) = (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT -small_positive_real
+                        Q_pred(i) = max( (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT & 
+                                          -small_positive_real, 0._dp)
                     END IF
                 ELSE
                     IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                        Q_pred(i) =-((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)-reach_data%Discharge(i+1)*dT)/dT-small_positive_real)
+                        Q_pred(i) =-max((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)- &
+                                        reach_data%Discharge(i+1)*dT)/dT-small_positive_real, 0._dp)
                     END IF
                 END IF
             END DO
             
+            ! As above for Qpred_zero
+            Qcon=0.5_dp*(Qpred_zero + reach_data%Discharge(1))
+            IF(Qcon<0._dp) THEN
+                IF(abs(Qcon)*dT > reach_data%Area(1)*delX_v(1)-small_positive_real) THEN
+                   Qpred_zero =-max((2.0_dp*reach_data%Area(1)*delX_v(1)-reach_data%Discharge(1)*dT)/dT-small_positive_real, 0._dp)
+                END IF
+            END IF
 
             ! NOW, enforce a no-drying limit on Area_cor
             ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
@@ -330,11 +347,11 @@ MODULE network_solver
                 Qcon = Q_pred(i)
                 IF(Qcon>0._dp) THEN
                     IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                        Q_pred(i) = (reach_data%Area(i)*delX_v(i)/dT -small_positive_real)
+                        Q_pred(i) = max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real, 0._dp)
                     END IF
                 ELSE
                     IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                        Q_pred(i) = -(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real)
+                        Q_pred(i) = -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)
                     END IF
                 END IF
 
@@ -348,6 +365,21 @@ MODULE network_solver
                     END IF
                 END IF
             END DO
+            ! As above for Qpred_zero
+            Qcon=Qpred_zero
+            IF(Qcon<0._dp) THEN
+               IF(abs(Qcon)*dT> reach_data%Area(1)*delX_v(1)-small_positive_real) THEN
+                   Qpred_zero = -max(reach_data%Area(1)*delX_v(1)/dT-small_positive_real, 0._dp)
+               END IF
+            END IF
+            ! As above for Qpred(n)
+            Qcon=Q_pred(n)
+            IF(Qcon>0._dp) THEN
+               IF(Qcon*dT> reach_data%Area(n)*delX_v(n)-small_positive_real) THEN
+                   Q_pred(n) = max(reach_data%Area(n)*delX_v(n)/dT-small_positive_real, 0._dp)
+               END IF
+            END IF
+
         END IF
 
         DO i=1,n
@@ -398,7 +430,7 @@ MODULE network_solver
                        -dT*gravity*Ab(2:n)*slope(2:n) 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
-        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2._dp))*Drag1D_pred(2:n) )
+        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
         DO i=2,n
              IF(abs(drag_factor(i)) > 0._dp) THEN
                 Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
@@ -409,9 +441,16 @@ MODULE network_solver
 
         DO i=1,n
             IF(Area_cor(i)<0._dp) THEN
-                print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
+                IF(i.EQ.1) THEN
+                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Qpred_zero, reach_data%Area(i), &
+                                                    (dT/delX_v(i))*(Q_pred(i)-Qpred_zero)
+                    stop
+                ELSE
+                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
                                                     (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1))
-                stop
+                    stop
+               
+                END IF 
             END IF
         END DO
 

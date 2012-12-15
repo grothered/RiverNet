@@ -24,8 +24,8 @@ PROGRAM main
     call set_initial_conditions(network%reach_data(1), 1.0_dp, 0._dp)
     print*, 'Have set initial conditions'
 
-    !print*, 'Reversing the reach data for sport'
-    !call reverse_reach_order(network%reach_data(1))
+    print*, 'Reversing the reach data for sport'
+    call reverse_reach_order(network%reach_data(1))
     
     ! Make an output file
     open(newunit=N_flow, file='output.txt')
@@ -34,10 +34,10 @@ PROGRAM main
     M=network%reach_data(1)%xsect_count
 
     ! Run the simulation
-    DO i=1,40000
+    DO i=1,max_its
 
         ! IO BLOCK
-        IF(mod(i-1,10).eq.0) THEN
+        IF(mod(i-1,writfreq).eq.0) THEN
             print*, '## Step ', i, '; Time (hr) ', network%time/3600._dp, '; dT:', network%dT
             print*, '   Q(1) = ', network%reach_data(1)%Discharge(1), ' Q(M) = ', network%reach_data(1)%Discharge(M)
             print*, ' Drag_1D(1) * d_bar ', &
