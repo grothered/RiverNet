@@ -30,7 +30,7 @@ MODULE global_defs
     LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.TRUE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
 
     integer, parameter, public:: max_its=40000 ! Number of time-steps
-    integer, parameter, public:: writfreq=1 ! Write every writfreq'th timestep
+    integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep
     
 
 END MODULE global_defs
