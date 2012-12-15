@@ -27,7 +27,7 @@ MODULE global_defs
     ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
     !real(dp), PARAMETER, PUBLIC:: max_timestep_increase=2.00_dp
 
-    LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.FALSE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
+    LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.TRUE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
 
     integer, parameter, public:: max_its=40000 ! Number of time-steps
     integer, parameter, public:: writfreq=1 ! Write every writfreq'th timestep
