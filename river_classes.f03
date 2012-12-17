@@ -134,7 +134,7 @@ MODULE river_classes
         N=reach%xsect_count
 
         ALLOCATE(reach%Stage(N), reach%Discharge(N), reach%Area(N), reach%Width(N), reach%Drag_1D(N), &
-                 reach%Discharge_con(N))
+                 reach%Discharge_con(N+1))
 
     END SUBROUTINE allocate_1d_vars
 
@@ -166,19 +166,25 @@ MODULE river_classes
         CLASS(reach_data_type), INTENT(INOUT)::reach
 
         INTEGER(ip):: i
-        CLASS(reach_boundary), ALLOCATABLE, SAVE:: temp_reach_boundary
+        CLASS(reach_boundary), ALLOCATABLE:: temp_reach_boundary
         !CLASS(reach_boundary), POINTER:: x
 
 
         ! Reverse boundaries
         allocate(temp_reach_boundary, source=reach%Upstream_boundary)
         !call reach%Upstream_boundary%delete()
+        call reach%Upstream_boundary%delete()
         deallocate(reach%Upstream_boundary)
+        
         allocate(reach%Upstream_boundary, source=reach%Downstream_boundary)
         !call reach%Downstream_boundary%delete()
+        call reach%Downstream_boundary%delete()
         deallocate(reach%Downstream_boundary)
         allocate(reach%Downstream_boundary,source=temp_reach_boundary)
+
+        call temp_reach_boundary%delete()
         deallocate(temp_reach_boundary)
+             
         !call temp_reach_boundary%delete()
        
 
@@ -201,7 +207,7 @@ MODULE river_classes
         reach%Area=reach%Area( reach%xsect_count:1:-1 )
         reach%Width=reach%Width( reach%xsect_count:1:-1 )
         reach%Drag_1D=reach%Drag_1D( reach%xsect_count:1:-1 )
-        reach%Discharge_con=-reach%Discharge_con( reach%xsect_count:1:-1 )
+        reach%Discharge_con=-reach%Discharge_con( (reach%xsect_count+1):1:-1 )
      
         ! Reverse the 'delX' term 
         DO i=1,size(reach%downstream_dists(1,:)) 

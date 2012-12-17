@@ -23,9 +23,11 @@ PROGRAM main
     ! Set the initial conditions
     call set_initial_conditions(network%reach_data(1), 1.0_dp, 0._dp)
     print*, 'Have set initial conditions'
-
+    !print*, network%reach_data(1)%downstream_dists(:,2)
     print*, 'Reversing the reach data for sport'
     call reverse_reach_order(network%reach_data(1))
+    !print*, network%reach_data(1)%downstream_dists(:,2)
+    !stop
     
     ! Make an output file
     open(newunit=N_flow, file='output.txt')
@@ -49,7 +51,7 @@ PROGRAM main
             write(N_flow,*) network%reach_data(1)%Area
             write(N_flow,*) network%reach_data(1)%Area/network%reach_data(1)%Width
             write(N_flow,*) network%reach_data(1)%Discharge
-            write(N_flow,*) network%reach_data(1)%Discharge_con
+            write(N_flow,*) network%reach_data(1)%Discharge_con(1:(network%reach_data(1)%xsect_count))
             write(N_time,*) network%time
             !write(N,*) network%reach_data(1)%Discharge/network%reach_data(1)%Area
         END IF

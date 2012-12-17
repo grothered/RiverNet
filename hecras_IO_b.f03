@@ -510,7 +510,8 @@ module hecras_IO
         CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
-        TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
+        !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
+        TYPE(PHYSICAL_BOUNDARY):: this_boundary
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
@@ -551,7 +552,7 @@ module hecras_IO
                         END IF
 
                         ! Allocate data
-                        ALLOCATE(this_boundary)
+                        !ALLOCATE(this_boundary)
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
 
@@ -617,9 +618,10 @@ module hecras_IO
                         this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
                         this_boundary%compute_method='stage'
                         allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
-                        
+                       
+                        call this_boundary%delete() 
                         ! Clean up
-                        DEALLOCATE(this_boundary)
+                        !DEALLOCATE(this_boundary)
                     ELSE
                         print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, bnd_station, &
                                 ', but these were not found in network geometry'
