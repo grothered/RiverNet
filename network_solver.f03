@@ -234,6 +234,7 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
+        REAL(dp):: Qtmp(reach_data%xsect_count)
         LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE.
 
         ! Predefine some useful vars
@@ -286,10 +287,6 @@ MODULE network_solver
 
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         IF(implicit_friction) THEN
-            ! Half a step of explicit friction
-            !Q_pred(1:n-1) = Q_pred(1:n-1) -0.5_dp*dT*gravity*Af(1:n-1)*Discharge_old(2:n)*abs(Discharge_old(2:n))/&
-            !                                (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
-            ! A step of implicit
             drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
                                       reach_data%Drag_1D(1:n-1) )
             DO i=1,n-1
@@ -451,10 +448,6 @@ MODULE network_solver
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
         IF(implicit_friction) THEN
-            ! Half a step of explicit friction
-            !Q_cor(2:n) = Q_cor(2:n) -0.5_dp*dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
-            !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
-            ! Half a step of implicit
             drag_factor(2:n)=1.0_dp*(gravity*Ab(2:n)*&
                              (-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
             DO i=2,n
