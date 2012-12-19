@@ -20,7 +20,7 @@ MODULE global_defs
     ! NUMERICAL CONSTANTS
     real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=1000._dp
 
-    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.0_dp
+    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.00_dp
     
     real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp
 

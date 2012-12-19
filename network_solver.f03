@@ -234,6 +234,7 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -268,7 +269,12 @@ MODULE network_solver
             dry_flag=1.0_dp + 0._dp*reach_data%Area
         END IF
 
-        convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag  
+        IF(convective_terms) THEN
+            convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag
+        ELSE
+            convective_flux=dry_flag*0._dp
+        END IF
+
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
@@ -279,14 +285,24 @@ MODULE network_solver
                        -dT*gravity*Af(1:n-1)*slope(1:n-1) 
 
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
-        drag_factor(1:n-1)=(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*reach_data%Drag_1D(1:n-1) )
-        DO i=1,n-1
-             IF(abs(drag_factor(i)) > 0._dp) THEN
-                Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
-             ELSE
-                ! Friction is negligible
-             END IF
-        END DO
+        IF(implicit_friction) THEN
+            ! Half a step of explicit friction
+            !Q_pred(1:n-1) = Q_pred(1:n-1) -0.5_dp*dT*gravity*Af(1:n-1)*Discharge_old(2:n)*abs(Discharge_old(2:n))/&
+            !                                (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
+            ! A step of implicit
+            drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
+                                      reach_data%Drag_1D(1:n-1) )
+            DO i=1,n-1
+                 IF(abs(drag_factor(i)) > 0._dp) THEN
+                    Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
+                 ELSE
+                    ! Friction is negligible
+                 END IF
+            END DO
+        ELSE
+            Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*Discharge_old(1:n-1)*abs(Discharge_old(1:n-1))/&
+                                            (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
+        END IF
         
         ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
         Area_pred(n) = reach_data%Area(n)
@@ -418,8 +434,12 @@ MODULE network_solver
         ELSE
             dry_flag=1.0_dp + 0._dp*Area_pred
         END IF
-
-        convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
+        
+        IF(convective_terms) THEN
+            convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
+        ELSE
+            convective_flux=dry_flag*0._dp
+        END IF
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         
         ! Compute Q corrector with implicit friction
@@ -430,14 +450,24 @@ MODULE network_solver
                        -dT*gravity*Ab(2:n)*slope(2:n) 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
-        drag_factor(2:n)=(gravity*Ab(2:n)*(-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
-        DO i=2,n
-             IF(abs(drag_factor(i)) > 0._dp) THEN
-                Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
-             ELSE
-                ! Friction is negligible
-             END IF
-        END DO
+        IF(implicit_friction) THEN
+            ! Half a step of explicit friction
+            !Q_cor(2:n) = Q_cor(2:n) -0.5_dp*dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
+            !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
+            ! Half a step of implicit
+            drag_factor(2:n)=1.0_dp*(gravity*Ab(2:n)*&
+                             (-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
+            DO i=2,n
+                 IF(abs(drag_factor(i)) > 0._dp) THEN
+                    Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
+                 ELSE
+                    ! Friction is negligible
+                 END IF
+            END DO
+        ELSE
+            Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
+                                            (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
+        END IF
 
         DO i=1,n
             IF(Area_cor(i)<0._dp) THEN

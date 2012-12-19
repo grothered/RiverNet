@@ -24,8 +24,8 @@ PROGRAM main
     call set_initial_conditions(network%reach_data(1), 1.0_dp, 0._dp)
     print*, 'Have set initial conditions'
     !print*, network%reach_data(1)%downstream_dists(:,2)
-    print*, 'Reversing the reach data for sport'
-    call reverse_reach_order(network%reach_data(1))
+    !print*, 'Reversing the reach data for sport'
+    !call reverse_reach_order(network%reach_data(1))
     !print*, network%reach_data(1)%downstream_dists(:,2)
     !stop
     
