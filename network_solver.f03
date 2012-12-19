@@ -163,11 +163,6 @@ MODULE network_solver
         !
         ! Mc-Cormack type flow solver with tweaks
         !
-        ! FIXME: Consider re-schematising: Volumes occur between x-sections,
-        ! 'conservative' discharge occurs at cross-sections. This might make it
-        ! easier to impose boundary conditions, and to avoid conceptually 'extending' the
-        ! reach beyond the bounds of the first and last xsection
-        !
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! Thoughts on imposing different types of boundary conditions
         !###
@@ -299,6 +294,9 @@ MODULE network_solver
         ELSE
             Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*Discharge_old(1:n-1)*abs(Discharge_old(1:n-1))/&
                                             (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
+
+            !Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*reach_data%Discharge_con(2:n)*abs(reach_data%Discharge_con(2:n))/&
+            !                                (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
         END IF
         
         ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
@@ -460,6 +458,9 @@ MODULE network_solver
         ELSE
             Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
                                             (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
+
+            !Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*reach_data%Discharge_con(2:n)*abs(reach_data%Discharge_con(2:n))/&
+            !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
         END IF
 
         DO i=1,n
@@ -528,7 +529,9 @@ MODULE network_solver
         END IF
         ! Compute 'conservative' discharge, which is much better behaved than
         ! pointwise discharge -- it exists at points (i+1/2)
-        reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),(Q_pred(1:n-1) + Discharge_old(2:n))*0.5_dp , Q_pred(n)/)
+        reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),&
+                                   0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
+                                   0.5_dp*(Q_pred(n)+Discharge_old(n))/)
         !reach_data%Discharge = (/ reach_data%Discharge(1), &
         !                          0.5_dp*(reach_data%Discharge_con(1:n-1) + reach_data%Discharge_con(2:n)), &
         !                          reach_data%Discharge(n) /)
