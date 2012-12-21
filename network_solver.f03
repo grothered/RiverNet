@@ -45,8 +45,8 @@ MODULE network_solver
         REAL(dp):: dT, local_wavespeed, local_dt, vel, grav_wavespeed
 
         ! Predefine timestep
-        dT=maximum_allowed_timestep
-        !dT = min(maximum_allowed_timestep , network%dT*max_timestep_increase)
+        !dT=maximum_allowed_timestep
+        dT = min(maximum_allowed_timestep , network%dT*max_timestep_increase)
         ! Note that this relies on dT being initialised to max_allowed_timestep
         
 
@@ -67,6 +67,7 @@ MODULE network_solver
         END DO
 
         network%dT=dT
+        !print*, '.', dT
 
     END SUBROUTINE update_timestep
 
@@ -228,7 +229,7 @@ MODULE network_solver
         REAL(dp):: mean_depth, convective_flux(reach_data%xsect_count), slope(reach_data%xsect_count)
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
-        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer
+        REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
         REAL(dp):: Qtmp(reach_data%xsect_count)
         LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE.
 
@@ -365,17 +366,8 @@ MODULE network_solver
                         Q_pred(i) = -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)
                     END IF
                 END IF
-
-                ! Here, we check for changes in the sign of Q_pred. This could
-                ! voilate the no-dry logic above. Can fix by setting 1 value to zero
-                IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i+1)) ) THEN
-                    IF(abs(Q_pred(i))<abs(Q_pred(i+1))) THEN
-                        Q_pred(i)=0._dp
-                    ELSE
-                        Q_pred(i+1)=0._dp
-                    END IF
-                END IF
             END DO
+            
             ! As above for Qpred_zero
             Qcon=Qpred_zero
             IF(Qcon<0._dp) THEN
@@ -390,6 +382,22 @@ MODULE network_solver
                    Q_pred(n) = max(reach_data%Area(n)*delX_v(n)/dT-small_positive_real, 0._dp)
                END IF
             END IF
+
+            ! Here, we check for changes in the sign of Q_pred. This could
+            ! voilate the no-dry logic above. Can fix by setting 1 value to zero
+            DO i=1,n-1
+                IF(sign(1.0_dp, Q_pred(i)) == -1._dp*sign(1.0_dp, Q_pred(i+1)) ) THEN
+
+                    IF( (Q_pred(i+1)-Q_pred(i)) > reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real  ) THEN
+                        IF(abs(Q_pred(i))<abs(Q_pred(i+1))) THEN
+                            Q_pred(i)=0._dp
+                        ELSE
+                            Q_pred(i+1)=0._dp
+                        END IF
+                    END IF
+                END IF
+            END DO
+
 
         END IF
 
@@ -411,7 +419,7 @@ MODULE network_solver
 
         ! Wet dry hack
         IF(wet_dry_hacks) THEN
-            Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/Width_pred > reach_data%wet_dry_depth)
+            Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/max(Width_pred,1.0_dp) > reach_data%wet_dry_depth)
         END IF
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -463,6 +471,14 @@ MODULE network_solver
             !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
         END IF
 
+        IF(wet_dry_hacks) THEN
+            ! Put discharge to zero in nearly dry cells
+            DO i=2,n
+            Width_cor(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_cor(i), 'area', 'width')
+            END DO
+            Q_cor(2:n)=merge(Q_cor(2:n), 0._dp*Q_cor(2:n), Area_cor(2:n)/max(width_cor(2:n),1.0_dp)>reach_data%wet_dry_depth)
+        END IF
+
         DO i=1,n
             IF(Area_cor(i)<0._dp) THEN
                 IF(i.EQ.1) THEN
@@ -477,6 +493,8 @@ MODULE network_solver
                 END IF 
             END IF
         END DO
+
+        
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
@@ -499,7 +517,7 @@ MODULE network_solver
         ! Wet dry hack
         IF(wet_dry_hacks) THEN
             reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
-                                   reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
+                                   reach_data%Area/max(reach_data%Width,1.0_dp) > reach_data%wet_dry_depth)
             ! NOW, enforce a no-drying limit on Area
             ! outgoing_flux < cell volume
             ! Try to prevent negative depths on the next A_pred, by ensuring that 
@@ -510,22 +528,51 @@ MODULE network_solver
             ! FIXME: CHECK THAT THIS DOESNT SCREW OTHER RESULTS
             ! Test 1 -- commented out this section, and re-ran nangka. Needed a
             ! small piolet discharge, but I did not see any effect on the results otherwise
-            !timestep_increase_buffer=1.0_dp/max_timestep_increase 
-            timestep_increase_buffer=1.0_dp
+            timestep_increase_buffer=1.0_dp/max_timestep_increase 
+            !timestep_increase_buffer=1.0_dp
             DO i=1,n-1
-                Qcon = reach_data%Discharge(i+1) 
-                IF(Qcon>0._dp) THEN
-                    IF(Qcon*dT> (reach_data%Area(i)*delX_v(i)-small_positive_real)*timestep_increase_buffer) THEN
+                Qup = reach_data%Discharge(i+1) 
+                Qdown = reach_data%Discharge(i) 
+                Qdiff=Qup-Qdown
+                IF((Qup>=0._dp).AND.(Qdown>=0._dp)) THEN
+                    IF(Qdiff*dT> max(reach_data%Area(i)*delX_v(i)-small_positive_real,0._dp)*timestep_increase_buffer) THEN
+                        ! On the next timestep, the cell would go dry. Stop it by limiting Qup
                         reach_data%Discharge(i+1) = &
                               max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
                     END IF
-                ELSE
-                    IF(abs(Qcon)*dT> (reach_data%Area(i+1)*delX_v(i+1)-small_positive_real)*timestep_increase_buffer) THEN
-                        reach_data%Discharge(i+1) = &
-                              -max(reach_data%Area(i+1)*delX_v(i+1)/dT-small_positive_real,0._dp)*timestep_increase_buffer
+                ELSEIF( (Qup<=0._dp).AND.(Qdown<=0._dp)) THEN
+                    IF(Qdiff*dT> max(reach_data%Area(i)*delX_v(i)-small_positive_real, 0._dp)*timestep_increase_buffer) THEN
+                        ! On the next timestep, the cell would go dry. Stop it by limiting Qdown
+                        reach_data%Discharge(i) = &
+                              -max(reach_data%Area(i)*delX_v(i)/dT-small_positive_real,0._dp)*timestep_increase_buffer
+                    END IF
+                ELSE IF( Qup*Qdown<0._dp) THEN
+                    IF(Qdiff*dT> (reach_data%Area(i)*delX_v(i)-small_positive_real)*timestep_increase_buffer) THEN
+                        ! On the next timestep, the cell would go dry. Stop it
+                        reach_data%Discharge(i+1) = 0.5_dp*sign(1.0_dp, reach_data%Discharge(i+1))*&
+                            max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
+                        reach_data%Discharge(i) = 0.5_dp*sign(1.0_dp, reach_data%Discharge(i))*&
+                            max(reach_data%Area(i)*delX_v(i)/dT -small_positive_real,0._dp)*timestep_increase_buffer
                     END IF
                 END IF
+
             END DO
+
+
+            ! Here, we check for changes in the sign of Q. This could
+            ! voilate the no-dry logic above. Can fix by setting 1 value to zero
+            !DO i=2,n
+            !    IF(sign(1.0_dp, reach_data%Discharge(i)) == -1._dp*sign(1.0_dp, reach_data%Discharge(i-1)) ) THEN
+            !        IF( (reach_data%Discharge(i)-reach_data%Discharge(i-1)) > &
+            !             reach_data%Area(i-1)*delX_v(i-1)/dT-small_positive_real  ) THEN
+            !            IF(abs(reach_data%Discharge(i))<abs(reach_data%Discharge(i-1))) THEN
+            !                reach_data%Discharge(i)=0._dp
+            !            ELSE
+            !                reach_data%Discharge(i-1)=0._dp
+            !            END IF
+            !        END IF
+            !    END IF
+            !END DO
         END IF
         ! Compute 'conservative' discharge, which is much better behaved than
         ! pointwise discharge -- it exists at points (i+1/2)

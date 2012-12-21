@@ -25,7 +25,7 @@ MODULE global_defs
     real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp
 
     ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
-    !real(dp), PARAMETER, PUBLIC:: max_timestep_increase=2.00_dp
+    real(dp), PARAMETER, PUBLIC:: max_timestep_increase=1.30_dp
 
     LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.TRUE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
 
