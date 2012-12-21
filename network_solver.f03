@@ -318,10 +318,11 @@ MODULE network_solver
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
         IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
-            Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') )
+            Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') ) !+ &
+                        !( reach_data%Downstream_boundary%eval(time, 'discharge') ) & -
+                        !reach_data%Discharge(n+1)
         ELSE
-            ! velocity-type extrapolation
-            Q_pred(n) = reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
+            Q_pred(n) = Q_pred(n-1) !reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
         END IF
 
         IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
