@@ -306,8 +306,6 @@ MODULE network_solver
             Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*Discharge_old(1:n-1)*abs(Discharge_old(1:n-1))/&
                                             (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
 
-            !Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*reach_data%Discharge_con(2:n)*abs(reach_data%Discharge_con(2:n))/&
-            !                                (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
         END IF
         
         ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
@@ -318,14 +316,8 @@ MODULE network_solver
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
         IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+            ! This will enforce the discharge
             Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') ) !+ &
-                        !( reach_data%Downstream_boundary%eval(time, 'discharge') ) & -
-                        !reach_data%Discharge(n+1)
-            !Area_pred(n) = reach_data%Area(n) - dT/delX_v(n)*(Q_pred(n) - reach_data%Discharge(n))
-        !ELSE
-        !    Q_pred(n) = Q_pred(n-1) !reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
-        !    Stage_pred(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
-        !    Area_pred(n) = reach_data%xsects(n)%stage_etc_curve%eval(Stage_pred(n), 'stage', 'area')
         END IF
 
         IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
