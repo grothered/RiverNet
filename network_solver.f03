@@ -321,16 +321,21 @@ MODULE network_solver
             Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') ) !+ &
                         !( reach_data%Downstream_boundary%eval(time, 'discharge') ) & -
                         !reach_data%Discharge(n+1)
-        ELSE
-            Q_pred(n) = Q_pred(n-1) !reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
+            !Area_pred(n) = reach_data%Area(n) - dT/delX_v(n)*(Q_pred(n) - reach_data%Discharge(n))
+        !ELSE
+        !    Q_pred(n) = Q_pred(n-1) !reach_data%Discharge(n) !reach_data%Discharge(n-1)*reach_data%Area(n)*delX_v(n)/(reach_data%Area(n-1)*delX_v(n-1)) !(n-1)/Area_pred(n-1)*Area_pred(n) !reach_data%Discharge(n-1)
+        !    Stage_pred(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
+        !    Area_pred(n) = reach_data%xsects(n)%stage_etc_curve%eval(Stage_pred(n), 'stage', 'area')
         END IF
 
         IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
+            ! This enforces the discharge
             Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                         reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
                         - reach_data%Discharge(1)
         ELSE
-            Qpred_zero = Q_pred(1)
+            ! Need to give this a value
+            Qpred_zero = 2.0_dp*Q_pred(1) -Q_pred(2)!2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2)
         END IF
 
 
@@ -434,6 +439,7 @@ MODULE network_solver
                           (Q_pred(2:n) - Q_pred(1:n-1))
         ! Discharge Conservative boundary treatment.
         Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
+        !Area_cor(1) = Area_pred(1)!reach_data%Area(1)
         
         ! ERROR CHECK
         DO i=1,n
