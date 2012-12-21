@@ -63,7 +63,7 @@ MODULE river_classes
         TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
         TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
 
-        REAL(dp):: time ! Time (s) from arbitrary start time
+        REAL(dp):: time=start_time ! Time (s) from arbitrary start time
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step
         REAL(dp):: CFL=cfl_1d_solver ! CFL number
 

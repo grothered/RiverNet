@@ -48,7 +48,6 @@ MODULE network_solver
         !dT=maximum_allowed_timestep
         dT = min(maximum_allowed_timestep , network%dT*max_timestep_increase)
         ! Note that this relies on dT being initialised to max_allowed_timestep
-        
 
         ! Loop over all xsections on all reaches and get the new timestep
         DO i=1,network%num_reaches
@@ -118,7 +117,7 @@ MODULE network_solver
                     
                     ! Note: Here we are lazy, in that we evaluate width at time tlast.      
                     ! (Q/A)**2 = (g*A/B); A**3=Q**2*(B/g)
-                    reach_data%Area(n) = (reach_data%Discharge(n)*(reach_data%Width(n)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
+                    reach_data%Area(n) = (abs(reach_data%Discharge(n))*(reach_data%Width(n)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
                 END IF
             END IF
         END IF
@@ -153,10 +152,11 @@ MODULE network_solver
                     reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
                    
                     ! Note: Here we are lazy, in that we evaluate width at time tlast.      
-                    reach_data%Area(1) = (reach_data%Discharge(1)*(reach_data%Width(1)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
+                    reach_data%Area(1) = (abs(reach_data%Discharge(1))*(reach_data%Width(1)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
                 END IF
             END IF
         END IF
+
     END SUBROUTINE apply_boundary_conditions
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -259,9 +259,19 @@ MODULE network_solver
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
 
+        ! Check it
+        DO i=1,n-1
+            IF((Area_pred(i)<0._dp).OR.(Area_pred(i).NE.Area_pred(i))) THEN
+                print*, 'Area_pred(', i,') is negative or nan, ', Area_pred(i), &
+                         reach_data%Discharge(i+1), reach_data%Discharge(i), &
+                         reach_data%Area(i), (dT/delX_v(i))*(reach_data%Discharge(i+1)-reach_data%Discharge(i))
+                stop
+            END IF
+        END DO
+
         ! Wet-dry flag
         IF(wet_dry_hacks) THEN
-            dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/reach_data%Width > reach_data%wet_dry_depth)
+            dry_flag=merge(1.0_dp, 0.0_dp, reach_data%Area/max(reach_data%Width,1.0_dp) > reach_data%wet_dry_depth)
         ELSE
             dry_flag=1.0_dp + 0._dp*reach_data%Area
         END IF
@@ -401,16 +411,9 @@ MODULE network_solver
 
         END IF
 
-        DO i=1,n
-            IF(Area_pred(i)<0._dp) THEN
-                print*, 'Area_pred(', i,') is negative, ', Area_pred(i), reach_data%Discharge(i+1), reach_data%Discharge(i), &
-                                      reach_data%Area(i), (dT/delX_v(i))*(reach_data%Discharge(i+1)-reach_data%Discharge(i))
-                stop
-            END IF
-        END DO
-
 
         ! Back-calculate stage/width/drag
+        !print*, 'pred_interp'
         DO i=1,n
             Stage_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'stage')
             Width_pred(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_pred(i), 'area', 'width')
@@ -430,10 +433,26 @@ MODULE network_solver
                           (Q_pred(2:n) - Q_pred(1:n-1))
         ! Discharge Conservative boundary treatment.
         Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
+        
+        ! ERROR CHECK
+        DO i=1,n
+            IF((Area_cor(i)<0._dp).OR.(Area_cor(i).NE.Area_cor(i))) THEN
+                IF(i.EQ.1) THEN
+                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Qpred_zero, reach_data%Area(i), &
+                                                    (dT/delX_v(i))*(Q_pred(i)-Qpred_zero)
+                    stop
+                ELSE
+                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
+                                                    (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1))
+                    stop
+               
+                END IF 
+            END IF
+        END DO
 
         ! Wet-dry flag
         IF(wet_dry_hacks) THEN
-            dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/Width_pred > reach_data%wet_dry_depth)
+            dry_flag=merge(1.0_dp, 0.0_dp, Area_pred/max(Width_pred,1.0_dp) > reach_data%wet_dry_depth)
         ELSE
             dry_flag=1.0_dp + 0._dp*Area_pred
         END IF
@@ -479,20 +498,6 @@ MODULE network_solver
             Q_cor(2:n)=merge(Q_cor(2:n), 0._dp*Q_cor(2:n), Area_cor(2:n)/max(width_cor(2:n),1.0_dp)>reach_data%wet_dry_depth)
         END IF
 
-        DO i=1,n
-            IF(Area_cor(i)<0._dp) THEN
-                IF(i.EQ.1) THEN
-                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Qpred_zero, reach_data%Area(i), &
-                                                    (dT/delX_v(i))*(Q_pred(i)-Qpred_zero)
-                    stop
-                ELSE
-                    print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
-                                                    (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1))
-                    stop
-               
-                END IF 
-            END IF
-        END DO
 
         
 
@@ -502,10 +507,12 @@ MODULE network_solver
         reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
 
+        !print*, 'before boundary', reach_data%Area(1), reach_data%Area(n)
         call apply_boundary_conditions(reach_data, time, dT, n)
 
        
         ! Back-calculate Stage, width, 1D drag
+        !print*, 'final_interp', reach_data%Area(1), reach_data%Area(n)
         DO i=1,n
             !print*, 'bc', i
             reach_data%Stage(i) = reach_data%xsects(i)%stage_etc_curve%eval(reach_data%Area(i), 'area', 'stage')

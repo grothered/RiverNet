@@ -21,15 +21,15 @@ PROGRAM main
     call read_hecras_boundary_conditions(input_boundary_file, network) 
     
     ! Set the initial conditions
-    call set_initial_conditions(network%reach_data(1), 1.0e-02_dp, 0._dp)
+    call set_initial_conditions(network%reach_data(1), 1.0e-03_dp, 0._dp)
     print*, 'Have set initial conditions'
     !print*, network%reach_data(1)%downstream_dists(:,2)
-    !print*, 'Reversing the reach data for sport'
-    !call reverse_reach_order(network%reach_data(1))
+    print*, 'Reversing the reach data for sport'
+    call reverse_reach_order(network%reach_data(1))
     !print*, network%reach_data(1)%downstream_dists(:,2)
     !stop
     
-    call network%reach_data(1)%xsects(68)%print()
+    !call network%reach_data(1)%xsects(68)%print()
     !print*, 'XX', network%reach_data(1)%xsects(68)%stage_etc_curve%eval(1.0e-13_dp,'area','width'), &
     !              network%reach_data(1)%xsects(68)%stage_etc_curve%eval(1.0e-13_dp,'area','stage')
     !stop
