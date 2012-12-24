@@ -1,4 +1,4 @@
-COMPILER=gfortran -O3
+COMPILER=gfortran -fbounds-check
 #COMPILER=gfortran -fbounds-check -pedantic
 #COMPILER=/usr/local/include/gcc_4.7/gcc-4.7/bin/gfortran -std=f2003
 SLATEC=libslatec.a

@@ -22,7 +22,7 @@ MODULE reach_boundary_classes
 
         contains
         PROCEDURE:: print => print_boundary
-        PROCEDURE:: delete => deallocate_reach_boundary
+        PROCEDURE:: delete => deallocate_reach_boundary_data
         PROCEDURE:: eval => get_boundary_values
     END TYPE REACH_BOUNDARY
 
@@ -91,7 +91,7 @@ MODULE reach_boundary_classes
     END SUBROUTINE print_boundary 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE deallocate_reach_boundary(jb)
+    SUBROUTINE deallocate_reach_boundary_data(jb)
             CLASS(reach_boundary):: jb
 
             SELECT TYPE(jb)
@@ -100,10 +100,10 @@ MODULE reach_boundary_classes
                     DEALLOCATE(jb%reach_ends)
                     DEALLOCATE(jb%distances)
                 TYPE IS(PHYSICAL_BOUNDARY)
-                    print*, 'ERROR: Need to implement deallocation for physical boundary'
-                    stop
+                    call delete_one_d_relation(jb%Boundary_t_w_Q)
+                    !DEALLOCATE(jb)
             END SELECT
-    END SUBROUTINE deallocate_reach_boundary
+    END SUBROUTINE deallocate_reach_boundary_data
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     FUNCTION get_boundary_values(rb, time, vartype)

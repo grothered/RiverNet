@@ -20,11 +20,18 @@ MODULE global_defs
     ! NUMERICAL CONSTANTS
     real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=1000._dp
 
-    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=0.9999_dp
+    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.00_dp
     
-    real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03
+    real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp
 
     ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
-    !real(dp), PARAMETER, PUBLIC:: max_timestep_increase=2.00_dp
+    real(dp), PARAMETER, PUBLIC:: max_timestep_increase=1.30_dp
+    real(dp), PARAMETER, PUBLIC:: start_time=0._dp
+
+    LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.TRUE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
+
+    integer, parameter, public:: max_its=40000 ! Number of time-steps
+    integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep
+    
 
 END MODULE global_defs

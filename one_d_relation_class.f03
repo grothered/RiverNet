@@ -132,4 +132,12 @@ MODULE one_d_relation_class
 
     END FUNCTION eval_one_D_relation
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE delete_one_D_relation(stage_etc_curve)
+        TYPE(one_d_relation), INTENT(INOUT):: stage_etc_curve
+        
+        deallocate(stage_etc_curve%x_y)
+        deallocate(stage_etc_curve%varnames)
+    END SUBROUTINE delete_one_D_relation
+
 END MODULE one_d_relation_class
