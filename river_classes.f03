@@ -66,6 +66,14 @@ MODULE river_classes
         REAL(dp):: time=start_time ! Time (s) from arbitrary start time
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step
         REAL(dp):: CFL=cfl_1d_solver ! CFL number
+   
+        INTEGER(ip):: output_file_unit, time_file_unit 
+
+        contains
+        PROCEDURE:: print_status => print_network_status
+        PROCEDURE:: create_outfiles => create_network_outfiles
+        PROCEDURE:: close_outfiles => close_network_outfiles
+        PROCEDURE:: write_data => write_network_data
 
     END TYPE NETWORK_DATA_TYPE
 
@@ -106,6 +114,67 @@ MODULE river_classes
 
     END SUBROUTINE print_reach
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE print_network_status(network, counter)
+        ! Print some statistics to the console
+        CLASS(network_data_type), INTENT(IN):: network
+        INTEGER(ip), INTENT(IN):: counter
+
+        !Local vars
+        INTEGER(ip):: M
+
+
+        ! IO BLOCK
+        IF(mod(counter-1,writfreq).eq.0) THEN
+            M=network%reach_data(1)%xsect_count
+
+            print*, '## Step ', counter, '; Time (hr) ', network%time/3600._dp, '; dT:', network%dT
+            print*, '   Q(1) = ', network%reach_data(1)%Discharge(1), ' Q(M) = ', network%reach_data(1)%Discharge(M)
+            print*, ' Drag_1D(1) * d_bar ', &
+                     network%reach_data(1)%Drag_1D(1)*network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
+            print*, 'd_bar(1) = ', network%reach_data(1)%Area(1)/network%reach_data(1)%Width(1)
+       END IF 
+    END SUBROUTINE print_network_status
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE create_network_outfiles(network)
+        ! Open files for writing output
+        CLASS(network_data_type), INTENT(INOUT):: network
+
+        open(newunit=network%output_file_unit, file='output.txt')
+        open(newunit=network%time_file_unit, file='time.txt')
+    END SUBROUTINE create_network_outfiles
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE close_network_outfiles(network)
+        ! Close files for writing output
+        CLASS(network_data_type), INTENT(IN):: network
+
+        close(network%output_file_unit)
+        close(network%time_file_unit)
+    END SUBROUTINE close_network_outfiles
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE write_network_data(network, counter) 
+        ! Write the reach information to the output file
+        CLASS(network_data_type), INTENT(IN):: network
+        INTEGER(ip), INTENT(IN):: counter
+
+        INTEGER(ip):: output_file_unit, time_file_unit, M
+
+        output_file_unit=network%output_file_unit
+        time_file_unit=network%time_file_unit
+        M=network%reach_data(1)%xsect_count
+
+        IF(mod(counter-1,writfreq).eq.0) THEN
+            write(output_file_unit,*) network%reach_data(1)%Stage
+            write(output_file_unit,*) network%reach_data(1)%Area
+            write(output_file_unit,*) network%reach_data(1)%Area/network%reach_data(1)%Width
+            write(output_file_unit,*) network%reach_data(1)%Discharge
+            write(output_file_unit,*) network%reach_data(1)%Discharge_con(1:M)
+            write(time_file_unit,*) network%time
+        END IF
+    END SUBROUTINE write_network_data
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     SUBROUTINE get_downstream_dists_from_xsections(reach)
