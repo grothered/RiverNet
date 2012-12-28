@@ -237,17 +237,14 @@ MODULE river_classes
 
         INTEGER(ip):: i
         CLASS(reach_boundary), ALLOCATABLE:: temp_reach_boundary
-        !CLASS(reach_boundary), POINTER:: x
 
 
         ! Reverse boundaries
         allocate(temp_reach_boundary, source=reach%Upstream_boundary)
-        !call reach%Upstream_boundary%delete()
         call reach%Upstream_boundary%delete()
         deallocate(reach%Upstream_boundary)
         
         allocate(reach%Upstream_boundary, source=reach%Downstream_boundary)
-        !call reach%Downstream_boundary%delete()
         call reach%Downstream_boundary%delete()
         deallocate(reach%Downstream_boundary)
         allocate(reach%Downstream_boundary,source=temp_reach_boundary)
@@ -255,9 +252,6 @@ MODULE river_classes
         call temp_reach_boundary%delete()
         deallocate(temp_reach_boundary)
              
-        !call temp_reach_boundary%delete()
-       
-
         ! Make sure 'Q' at the boundaries has the right sign
         SELECT TYPE(x=>reach%Upstream_boundary)
         TYPE IS(PHYSICAL_BOUNDARY)

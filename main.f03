@@ -14,7 +14,6 @@ PROGRAM main
     INTEGER(ip):: i, N_flow, N_time, M
 
     ! Initiate the geometry by reading the data
-    !call read_hecras_file(input_geometry_file, network, .TRUE.)
     call read_hecras_file(input_geometry_file, network, print_output=.FALSE.)
 
     ! Set the boundary conditions
