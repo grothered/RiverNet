@@ -6,6 +6,7 @@ MODULE network_solver
     IMPLICIT NONE 
     contains
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE evolve_hydraulics(network)
         ! Evolve the hydraulics in the network
         TYPE(network_data_type), INTENT(IN OUT):: network
@@ -30,8 +31,6 @@ MODULE network_solver
         ! Advance time
         network%time=network%time+network%dT
         
-        
-
     END SUBROUTINE evolve_hydraulics
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

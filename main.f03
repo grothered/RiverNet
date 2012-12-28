@@ -24,7 +24,7 @@ PROGRAM main
     print*, 'Have set initial conditions'
     !call reverse_reach_order(network%reach_data(1))
 
-    ! Make an output file
+    ! Open output files
     call network%create_outfiles()
 
     ! Run the simulation
@@ -35,6 +35,8 @@ PROGRAM main
         call evolve_hydraulics(network)
         !call network%reach_data(1)%reverse_reach_order()
     END DO
+
+    ! Close the output files
     call network%close_outfiles()
 
 END PROGRAM

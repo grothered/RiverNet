@@ -39,9 +39,11 @@ MODULE reach_boundary_classes
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
 
         ! Hydrodynamic variables
-        REAL(dp), ALLOCATABLE:: Stage(:) ! Stage at each connection to the junction, for each reach
-        REAL(dp), ALLOCATABLE:: Area(:) ! Area at each connection to the junction, for each reach
-        REAL(dp), ALLOCATABLE:: Discharge(:) ! Discharge at each connection to the junction, for each reach
+        REAL(dp):: Stage
+        REAL(dp):: Volume
+        REAL(dp):: Discharge_x, Discharge_y
+
+        TYPE(ONE_D_RELATION):: Stage_volume_curve
 
     END TYPE JUNCTION_BOUNDARY
 
@@ -92,21 +94,24 @@ MODULE reach_boundary_classes
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE deallocate_reach_boundary_data(jb)
-            CLASS(reach_boundary):: jb
+        ! Deallocates sub-components of the boundary. Used to avoid memory leaks
+        CLASS(reach_boundary):: jb
 
-            SELECT TYPE(jb)
-                TYPE IS(JUNCTION_BOUNDARY)
-                    DEALLOCATE(jb%reach_names)
-                    DEALLOCATE(jb%reach_ends)
-                    DEALLOCATE(jb%distances)
-                TYPE IS(PHYSICAL_BOUNDARY)
-                    call delete_one_d_relation(jb%Boundary_t_w_Q)
-                    !DEALLOCATE(jb)
-            END SELECT
+        SELECT TYPE(jb)
+            TYPE IS(JUNCTION_BOUNDARY)
+                DEALLOCATE(jb%reach_names)
+                DEALLOCATE(jb%reach_ends)
+                DEALLOCATE(jb%distances)
+            TYPE IS(PHYSICAL_BOUNDARY)
+                call delete_one_d_relation(jb%Boundary_t_w_Q)
+                !DEALLOCATE(jb)
+        END SELECT
     END SUBROUTINE deallocate_reach_boundary_data
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     FUNCTION get_boundary_values(rb, time, vartype)
+        ! Function to get variable 'vartype' at time='time' from boundary rb, which may be a 
+        ! reach or a junction boundary
         class(reach_boundary):: rb
         REAL(dp):: time, get_boundary_values
         CHARACTER(*):: vartype
