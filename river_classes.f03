@@ -281,4 +281,11 @@ MODULE river_classes
 
     END SUBROUTINE reverse_reach_order
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE update_junction_values(network)
+        TYPE(network_data_type), INTENT(INOUT):: network
+
+    END SUBROUTINE update_junction_values
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 END MODULE river_classes

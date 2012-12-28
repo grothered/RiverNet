@@ -24,9 +24,12 @@ MODULE network_solver
             call one_mccormack_step(network%reach_data(i), network%time, network%dT)
         END DO
 
-        !DO i=1,network%num_junctions
-        !    call update_junction_values(network%reach_junctions(i))
-        !END DO
+        IF(network%num_junctions>0) THEN
+            !DO i=1,network%num_junctions
+            !    call update_junction_values(network, network%reach_junctions(i))
+            !END DO
+            call update_junction_values(network)
+        END IF
 
         ! Advance time
         network%time=network%time+network%dT
