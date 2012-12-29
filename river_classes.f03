@@ -287,46 +287,53 @@ MODULE river_classes
         ! FIXME: This is done crudely at present
         TYPE(network_data_type), INTENT(INOUT):: network
 
-        INTEGER(ip):: i, j, M, chosen_xsect, L
+        INTEGER(ip):: i, j, M, chosen_xsect,tmp(1), L, r
         REAL(dp):: stagemin, stagemax, temp_real(veclen)
 
         IF(network%num_junctions>0) THEN
             DO i=1,network%num_junctions
                 ! Set up variable names for stage volume curve
-                ALLOCATE(network%junctions(i)%Stage_volume_curve%varnames(2))
-                network%junctions(i)%Stage_volume_curve%varnames(1) = 'stage'
-                network%junctions(i)%Stage_volume_curve%varnames(2) = 'volume'
+                ALLOCATE(network%reach_junctions(i)%Stage_volume_curve%varnames(2))
+                network%reach_junctions(i)%Stage_volume_curve%varnames(1) = 'stage'
+                network%reach_junctions(i)%Stage_volume_curve%varnames(2) = 'volume'
 
                 ! FIXME: Crude method
                 ! volume  = (chosen xsect_area)*min_junction_length
                 ! Loop over all neighbouring xsections, and find the one with
                 ! the smallest min stage. Take this as chosen_xsect_area
-                DO j=1,size(network%junction(i)%reach_ends)
+                DO j=1,size(network%reach_junctions(i)%reach_ends)
 
-                    r = network%junction(i)%reach_index(j)
+                    r = network%reach_junctions(i)%reach_index(j)
 
                     ! Find the min_stage on each stage_etc_curve
-                    IF(network%junction(i)%reach_ends(j) == 'Up') THEN
+                    IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)
-                    ELSEIF(network%junction(i)%reach_ends(j) == 'Dn') THEN
+                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
                         M=network%reach_data(r)%xsect_count
                         temp_real(j) = network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(1,1)
                     END IF
 
                 END DO
+
                 ! Use the associated xsection info to make the stage-volume curve
-                chosen_xsect=minloc(temp_real(1: size(network%junction(i)%reach_ends)))
-                r = network%junction(i)%reach_index(chosen_xsect)
-                IF(network%junction(i)%reach_ends(chosen_xsect) == 'Up') THEN
+                ! Chosen_xsect = the one with the smallest stage on the stage_etc_curve
+                tmp=minloc(temp_real(1: size(network%reach_junctions(i)%reach_ends)))
+                chosen_xsect=tmp(1)
+
+                r = network%reach_junctions(i)%reach_index(chosen_xsect)
+
+                IF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Up') THEN
                     M = 1
-                ELSEIF(network%junction(i)%reach_ends(chosen_xsect) == 'Dn') THEN
+                ELSEIF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Dn') THEN
                     M=network%reach_data(r)%xsect_count
                 END IF
 
+                ! Allocate and assign the values
                 L = size(network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)) 
-                ALLOCATE(network%junction(i)%Stage_volume_curve%x_y(L,2))               
-                network%junction(i)%Stage_volume_curve(:,1) = network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1) 
-                network%junction(i)%Stage_volume_curve(:,2) = & 
+                ALLOCATE(network%reach_junctions(i)%Stage_volume_curve%x_y(L,2))               
+                network%reach_junctions(i)%Stage_volume_curve%x_y(:,1) = &
+                             network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1) 
+                network%reach_junctions(i)%Stage_volume_curve%x_y(:,2) = & 
                              network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)*min_junction_length
             END DO
         END IF
