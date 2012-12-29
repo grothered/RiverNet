@@ -127,40 +127,8 @@ module hecras_IO
                 print*, 'REACH COUNT:: ', reach_count
               
                 ! Get 'reach_names' 
-                !ALLOCATE(reach_data(reach_count)%names(2)) 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
                
-                !!!HYPOTHETICAL BOUNDARY CONDITION ALLOCATION
-                ! FIXME: THIS BELONGS ELSEWHERE
-                ! Fake physical boundary
-                !db_pb%boundary_type='Physical_boundary'
-                !db_pb%input_file='myfile.txt'
-                !db_pb%compute_method='Prefer_w'
-
-                !! Fake junction boundary
-                !ALLOCATE(ub_jb)
-                !ub_jb%boundary_type='Junction_boundary'
-                !ub_jb%junction_name='myjunc'
-                !!allocate(jb(reach_count)%reach_names(3))
-                !ALLOCATE(ub_jb%reach_names(3))
-                !ALLOCATE(ub_jb%reach_ends(3))
-                !ub_jb%reach_names(1)="asf"
-                !ub_jb%reach_names(2)= "asa"
-                !ub_jb%reach_names(3)= "asdfadsf"
-                !!allocate(jb(reach_count)%reach_ends(3))
-                !ub_jb%reach_ends(1:3)=(/ 'Up  ', 'Up  ', 'Down' /)
-             
-                !! **Randomly** assign boundary types, to test that we can use polymorphism
-                !IF(mod(reach_count,2_ip)==0) THEN 
-                !    allocate(reach_data(reach_count)%Downstream_boundary, source=db_pb) 
-                !    allocate(reach_data(reach_count)%Upstream_boundary, source=ub_jb) 
-                !ELSE
-                !    allocate(reach_data(reach_count)%Downstream_boundary, source=ub_jb) 
-                !    allocate(reach_data(reach_count)%Upstream_boundary, source=db_pb) 
-                !END IF 
-                !DEALLOCATE(ub_jb)
-                !! END TEST OF BOUNDARY CONDITION 
- 
                 ! Read the coordinates -- this code pattern is repeated for reading cross-sectional info
                 CALL next_match(input_file_unit_no, "Reach XY=", io_test, "(A9)")
                 IF(io_test<0) THEN
@@ -318,7 +286,7 @@ module hecras_IO
         INTEGER(ip), INTENT(IN):: input_file_unit_no
         TYPE(network_data_type), INTENT(INOUT)::network
 
-        INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0
+        INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0, tmp
         TYPE(JUNCTION_BOUNDARY):: jb
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
         REAL(dp):: temp_reals(veclen)
@@ -420,21 +388,22 @@ module hecras_IO
             END DO  
                 jb%distances(join_count)=0._dp
 
+            ! Stick it into the reach_junctions
             network%reach_junctions(junction_count)=jb
 
-            ! Now loop over every reach, and add the boundary information as needed
-            !DO i=1,num_reaches
-            !    ! Loop over every connecting reach in the junction
-            !    DO j = 1, size(jb%reach_names(:,1))
-            !        IF((jb%reach_names(j,1)==reach_data(i)%names(1)).AND.(jb%reach_names(j,2)==reach_data(i)%names(2)) ) THEN
-            !            IF(jb%reach_ends(j) == 'Up') THEN
-            !                allocate(reach_data(i)%Upstream_boundary, source=jb)
-            !            ELSE
-            !                allocate(reach_data(i)%Downstream_boundary, source=jb)
-            !            END IF
-            !        END IF
-            !    END DO
-            !END DO
+            ! Point the reach boundaries to the junction information
+            DO i=1,join_count
+                tmp=jb%reach_index(i)                    
+                IF(jb%reach_ends(i)=='Up') THEN
+                    network%reach_data(tmp)%Downstream_boundary => network%reach_junctions(junction_count) 
+                ELSEIF(jb%reach_ends(i)=='Dn') THEN
+                    network%reach_data(tmp)%Upstream_boundary => network%reach_junctions(junction_count) 
+                ELSE
+                    print*, 'ERROR: junction reach_ends(', i,') not recognised ', jb%reach_ends(i)
+                    stop
+                END IF
+
+            END DO
 
             ! Clean up
             call jb%delete()
