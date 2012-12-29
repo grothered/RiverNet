@@ -19,6 +19,7 @@ MODULE river_classes
         
         ! Boundary information
         CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
+        !CLASS(REACH_BOUNDARY), POINTER:: Downstream_boundary, Upstream_boundary
        
         ! XSECTIONAL INFORMATION 
         INTEGER(ip):: xsect_count ! Number of xsections
@@ -62,6 +63,7 @@ MODULE river_classes
         INTEGER(ip):: num_junctions
         TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
         TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
+        TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: physical_boundaries(:)
 
         REAL(dp):: time=start_time ! Time (s) from arbitrary start time
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step

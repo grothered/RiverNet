@@ -395,9 +395,13 @@ module hecras_IO
             DO i=1,join_count
                 tmp=jb%reach_index(i)                    
                 IF(jb%reach_ends(i)=='Up') THEN
-                    network%reach_data(tmp)%Downstream_boundary => network%reach_junctions(junction_count) 
+                    print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
+                    stop
+                    !network%reach_data(tmp)%Downstream_boundary => network%reach_junctions(junction_count) 
                 ELSEIF(jb%reach_ends(i)=='Dn') THEN
-                    network%reach_data(tmp)%Upstream_boundary => network%reach_junctions(junction_count) 
+                    print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
+                    stop
+                    !network%reach_data(tmp)%Upstream_boundary => network%reach_junctions(junction_count) 
                 ELSE
                     print*, 'ERROR: junction reach_ends(', i,') not recognised ', jb%reach_ends(i)
                     stop
@@ -486,7 +490,7 @@ module hecras_IO
 
         ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
-        INTEGER(ip):: lb, ub
+        INTEGER(ip):: lb, ub, num_physical_bounds, boundary_counter=0
         REAL(dp):: Qmin
         CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
@@ -496,6 +500,10 @@ module hecras_IO
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
+
+        ! Make space for storing the physical boundaries
+        !num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', 'A18')
+        !allocate(network%physical_boundaries(num_physical_bounds))
 
         ! Loop over every 'Boundary Location' line, and possibly suck the data into a reach boundary
         DO WHILE(io_test==0)
@@ -514,6 +522,7 @@ module hecras_IO
                     reach_name=network%reach_data(i)%names(2)
                     IF( (trim(river_name)==trim(bnd_river_name)).AND.(trim(reach_name)==trim(bnd_reach_name))) THEN
                         print*, 'Found boundary at ', trim(river_name),' ', trim(reach_name)
+                        boundary_counter=boundary_counter+1
 
                         ! Put the file data into the boundary
 
@@ -579,9 +588,13 @@ module hecras_IO
                         IF(bnd_station==station1) THEN
                             print*, 'Upstream boundary'
                             allocate(network%reach_data(i)%Upstream_boundary, source=this_boundary)
+                            !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
+                            !network%reach_data(i)%Upstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSEIF(bnd_station==stationN) THEN
                             print*, 'Downstream boundary'
                             allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                            !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
+                            !network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSE
                             print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
                             stop
