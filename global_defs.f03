@@ -8,30 +8,44 @@ MODULE global_defs
     ! rather than having magic numbers everywhere
     integer(ip), PARAMETER, PUBLIC:: veclen=100
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! PHYSICAL CONSTANTS
+    real(dp), PARAMETER, PUBLIC:: gravity=9.8_dp ! m/s**2
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! NUMERICAL CONSTANTS
     ! A missing_value for a real
     real(dp), PARAMETER, PUBLIC:: missing_value=-9.0e+30_dp
    
     ! A small 'almost zero' number 
     real(dp), PARAMETER, PUBLIC:: small_positive_real=1.0e-10_dp
 
-    ! PHYSICAL CONSTANT
-    real(dp), PARAMETER, PUBLIC:: gravity=9.8_dp ! m/s**2
-
-    ! NUMERICAL CONSTANTS
     real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=1000._dp
+
+    ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
+    real(dp), PARAMETER, PUBLIC:: max_timestep_increase=1.30_dp ! dt_next <= dt_last * max_timestep_increase
 
     real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.00_dp
     
-    real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp
-
-    ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
-    real(dp), PARAMETER, PUBLIC:: max_timestep_increase=1.30_dp
-    real(dp), PARAMETER, PUBLIC:: start_time=0._dp
+    real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp ! Used to define 'dry' cells at which we zero discharge / flux
+    
 
     LOGICAL, PARAMETER, PUBLIC:: wet_dry_hacks=.TRUE. ! Flag to turn on/off wet-dry hacks. Useful for testing their effect
+    
+    real(dp), PARAMETER, PUBLIC:: min_junction_length=50._dp ! FIXME: Used to compute junction stage-volume curve in a hacky way
+
+    ! Max stage on one-d-relations = max xsect_elev + one_d_relation_stage_protection
+    real(dp), PARAMETER, PUBLIC:: one_d_relations_stage_protection=1000._dp !
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Simulation duration parameters
 
     integer, parameter, public:: max_its=40000 ! Number of time-steps
+   
+    ! Start time for simulation 
+    real(dp), PARAMETER, PUBLIC:: start_time=0._dp
+   
+    ! IO 
     integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep
-    
 
 END MODULE global_defs

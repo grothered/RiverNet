@@ -388,6 +388,7 @@ module hecras_IO
             ALLOCATE(jb%reach_names(join_count,2))
             ALLOCATE(jb%reach_ends(join_count))
             ALLOCATE(jb%distances(join_count))
+            ALLOCATE(jb%reach_index(join_count))
 
             DO i=1,join_count
                 jb%reach_names(i,1) = temp_chars(3*(i-1) +2)
@@ -398,6 +399,16 @@ module hecras_IO
                 ELSE
                     jb%reach_ends(i) = 'Dn'
                 END IF
+                
+                ! Find index of network%reach_data associated with this connection to jb
+                ! by looping over every reach and checking for a match.
+                DO j=1,network%num_reaches
+                    IF( (jb%reach_names(i,1) == network%reach_data(j)%names(1)).AND. &
+                        (jb%reach_names(i,2) == network%reach_data(j)%names(2)) ) THEN
+                        jb%reach_index(i) = j
+                        print*, 'MATCHED junction ', i, ' with reach ', j
+                    END IF
+                END DO
             END DO
 
             ! Read the downstream distances
@@ -432,6 +443,7 @@ module hecras_IO
         !print*, 'Finished junction routine'
         ! Back to start of file
         rewind(input_file_unit_no) 
+
     END SUBROUTINE   
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

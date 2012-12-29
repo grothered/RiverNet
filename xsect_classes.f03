@@ -43,7 +43,7 @@ MODULE xsect_classes
         INTEGER:: IPERM(size(xsect%yz(:,1))), ierr, i, j,unique_stage_count
         INTEGER:: num_vars=4 ! Number of variables in the relation. Stage, Area, Width, drag_1D
 
-        REAL(dp):: stage_protection=1000._dp ! FIXME: MAGIC NUMBER
+        REAL(dp):: stage_protection=one_d_relations_stage_protection
         REAL(dp):: incremental_area, stg, min_bed,max_bed, stg_lower, stg_higher, incremental_width 
         REAL(dp):: incremental_drag_num, incremental_drag_denom, u_temp, d_temp, incremental_q, dy
 
@@ -60,8 +60,6 @@ MODULE xsect_classes
         ! For protection, we add another high stage (with value = max(bed) + stage_protection)
         ! to the stage_etc_curve
 
-        print*, 'WARNING: have not properly initialised drag_1D'
-       
         ALLOCATE(xsect%stage_etc_curve%varnames(num_vars))
         xsect%stage_etc_curve%varnames(1)='stage'
         xsect%stage_etc_curve%varnames(2)='area'

@@ -37,6 +37,7 @@ MODULE reach_boundary_classes
         CHARACTER(len=charlen), ALLOCATABLE:: reach_names(:, :) ! Names of reaches that join here
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
+        INTEGER(ip), ALLOCATABLE:: reach_index(:) ! Index of the reach in network%reach_data
 
         ! Hydrodynamic variables
         REAL(dp):: Stage
@@ -86,7 +87,8 @@ MODULE reach_boundary_classes
                     print*, trim(generic_boundary%reach_names(i,1)), ' ',& 
                             trim(generic_boundary%reach_names(i,2)), ' ',&
                             trim(generic_boundary%reach_ends(i)), ' ',&
-                            generic_boundary%distances(i)
+                            generic_boundary%distances(i), ' ' , &
+                            generic_boundary%reach_index(i)
                 END DO
         END SELECT
 
@@ -102,6 +104,7 @@ MODULE reach_boundary_classes
                 DEALLOCATE(jb%reach_names)
                 DEALLOCATE(jb%reach_ends)
                 DEALLOCATE(jb%distances)
+                DEALLOCATE(jb%reach_index)
             TYPE IS(PHYSICAL_BOUNDARY)
                 call delete_one_d_relation(jb%Boundary_t_w_Q)
                 !DEALLOCATE(jb)
@@ -117,7 +120,19 @@ MODULE reach_boundary_classes
         CHARACTER(*):: vartype
 
         SELECT TYPE(rb)
+
             TYPE IS(JUNCTION_BOUNDARY)
+                ! FIXME: At present, this simply gives the values of Stage / Discharge etc 
+                ! which are stored in the junction, IRRESPECTIVE of the value of 'time'
+                SELECT CASE(vartype)
+                    CASE('stage')
+                        get_boundary_values=rb%Stage
+                    CASE('discharge')
+                        get_boundary_values=rb%Discharge_x
+                    CASE DEFAULT
+                        print*, 'ERROR: cannot compute the value of vartype = ', vartype, ' at a junction boundary'                   
+                        stop
+                END SELECT
 
             TYPE IS(PHYSICAL_BOUNDARY)
                 get_boundary_values=rb%Boundary_t_w_Q%eval(time, 'time', vartype)
@@ -125,5 +140,6 @@ MODULE reach_boundary_classes
 
     END FUNCTION get_boundary_values
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 END MODULE reach_boundary_classes
 

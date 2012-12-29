@@ -281,9 +281,106 @@ MODULE river_classes
 
     END SUBROUTINE reverse_reach_order
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE init_junction_stage_volume_curves(network)
+        ! Set up the stage - volume curve for all the junctions
+        ! FIXME: This is done crudely at present
+        TYPE(network_data_type), INTENT(INOUT):: network
+
+        INTEGER(ip):: i, j, M, chosen_xsect, L
+        REAL(dp):: stagemin, stagemax, temp_real(veclen)
+
+        IF(network%num_junctions>0) THEN
+            DO i=1,network%num_junctions
+                ! Set up variable names for stage volume curve
+                ALLOCATE(network%junctions(i)%Stage_volume_curve%varnames(2))
+                network%junctions(i)%Stage_volume_curve%varnames(1) = 'stage'
+                network%junctions(i)%Stage_volume_curve%varnames(2) = 'volume'
+
+                ! FIXME: Crude method
+                ! volume  = (chosen xsect_area)*min_junction_length
+                ! Loop over all neighbouring xsections, and find the one with
+                ! the smallest min stage. Take this as chosen_xsect_area
+                DO j=1,size(network%junction(i)%reach_ends)
+
+                    r = network%junction(i)%reach_index(j)
+
+                    ! Find the min_stage on each stage_etc_curve
+                    IF(network%junction(i)%reach_ends(j) == 'Up') THEN
+                        temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)
+                    ELSEIF(network%junction(i)%reach_ends(j) == 'Dn') THEN
+                        M=network%reach_data(r)%xsect_count
+                        temp_real(j) = network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(1,1)
+                    END IF
+
+                END DO
+                ! Use the associated xsection info to make the stage-volume curve
+                chosen_xsect=minloc(temp_real(1: size(network%junction(i)%reach_ends)))
+                r = network%junction(i)%reach_index(chosen_xsect)
+                IF(network%junction(i)%reach_ends(chosen_xsect) == 'Up') THEN
+                    M = 1
+                ELSEIF(network%junction(i)%reach_ends(chosen_xsect) == 'Dn') THEN
+                    M=network%reach_data(r)%xsect_count
+                END IF
+
+                L = size(network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)) 
+                ALLOCATE(network%junction(i)%Stage_volume_curve%x_y(L,2))               
+                network%junction(i)%Stage_volume_curve(:,1) = network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1) 
+                network%junction(i)%Stage_volume_curve(:,2) = & 
+                             network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)*min_junction_length
+            END DO
+        END IF
+
+
+    END SUBROUTINE init_junction_stage_volume_curves
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE update_junction_values(network)
+        ! Update the volume / momentum in each junction
         TYPE(network_data_type), INTENT(INOUT):: network
+        
+        INTEGER(ip):: i, j, r, N, M
+        REAL(dp):: Q_update, Qx_update, Qy_update, V
+
+        IF(network%num_junctions>0) THEN
+            ! Loop over every junction
+            DO i=1,network%num_junctions
+                N=size(network%reach_junctions(i)%reach_ends)
+
+                ! Re-set junction momentum to zero
+                network%reach_junctions(i)%Discharge_x=0._dp
+                network%reach_junctions(i)%Discharge_y=0._dp
+
+                ! Loop over every reach connecting to the junction
+                DO j=1,N
+                    ! Identify the associated reach index
+                    r=network%reach_junctions(i)%reach_index(j)
+
+                    ! Update the volume of water in the junction
+                    IF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
+                        M = network%reach_data(r)%xsect_count
+                        Q_update=-network%reach_data(r)%Discharge_con(M)
+                        Qx_update= - Q_update
+                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
+                        Q_update=network%reach_data(j)%Discharge_con(1)
+                        Qx_update= Q_update
+                    ELSE
+                        print*, 'ERROR: reach end is neither Up or Dn'
+                        stop
+                    END IF
+                    network%reach_junctions(i)%Volume = network%reach_junctions(i)%Volume + network%dT*Q_update
+
+                    ! Update the momenta
+                    ! FIXME -- use a crude average at present
+                    network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
+                    network%reach_junctions(i)%Discharge_y=0._dp
+                END DO
+
+                ! Update the stage
+                V = network%reach_junctions(i)%Volume
+                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'Volume', 'Stage')
+            END DO
+        END IF
 
     END SUBROUTINE update_junction_values
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
