@@ -64,6 +64,8 @@ MODULE river_classes
         TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
         TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
         TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: physical_boundaries(:)
+        !TYPE(JUNCTION_BOUNDARY) :: reach_junctions(veclen)
+        !TYPE(PHYSICAL_BOUNDARY) :: physical_boundaries(veclen)
 
         REAL(dp):: time=start_time ! Time (s) from arbitrary start time
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step
