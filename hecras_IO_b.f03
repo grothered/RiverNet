@@ -312,6 +312,7 @@ module hecras_IO
 
             jb=>network%reach_junctions(junction_count)
             jb%boundary_type='junction_boundary'    
+            jb%reach_junctions_index=junction_count
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Read the junction information           
             ! Looks like this:
@@ -548,6 +549,7 @@ module hecras_IO
                         ! Allocate data
                         !ALLOCATE(this_boundary)
                         this_boundary=>network%physical_boundaries(boundary_counter)
+                        this_boundary%physical_boundaries_index=boundary_counter
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
 
@@ -616,6 +618,7 @@ module hecras_IO
                         boundary_counter=boundary_counter+1
                         network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
                         this_boundary=> network%physical_boundaries(boundary_counter)
+                        this_boundary%physical_boundaries_index=boundary_counter
                         this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
                         this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
                         this_boundary%compute_method='stage'

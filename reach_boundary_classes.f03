@@ -38,6 +38,7 @@ MODULE reach_boundary_classes
         CHARACTER(len=charlen), ALLOCATABLE:: reach_ends(:) ! Upstream or Downstream? for each reach
         REAL(dp), ALLOCATABLE:: distances(:) ! Distance from the junction, for each reach
         INTEGER(ip), ALLOCATABLE:: reach_index(:) ! Index of the reach in network%reach_data
+        INTEGER(ip):: reach_junctions_index ! Index of the boundary in network%reach_junctions
 
         ! Hydrodynamic variables
         REAL(dp):: Stage
@@ -57,6 +58,7 @@ MODULE reach_boundary_classes
         ! force the water surface elevation, or the discharge, or some combination of them,
         ! but it is incorrect to force both w and Q]
         CHARACTER(len=charlen):: input_file ! File containing t, w and Q
+        INTEGER(ip):: physical_boundaries_index ! Index of the boundary in network%physical_boundaries
 
 
         TYPE(ONE_D_RELATION):: Boundary_t_w_Q ! One-d-relation which will hold t, w, and Q timeseries for the boundary

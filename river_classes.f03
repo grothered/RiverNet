@@ -236,26 +236,63 @@ MODULE river_classes
     END SUBROUTINE set_initial_conditions
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE reverse_reach_order(reach)
+    SUBROUTINE reverse_reach_order(reach, network)
         CLASS(reach_data_type), INTENT(INOUT)::reach
+        CLASS(network_data_type), INTENT(IN), TARGET:: network
 
-        INTEGER(ip):: i
-        CLASS(reach_boundary), ALLOCATABLE:: temp_reach_boundary
+        INTEGER(ip):: i, t1, t2
+        CHARACTER(charlen):: c1, c2
 
+        !Identify upstream and downstream boundaries 
+        SELECT TYPE(x=>reach%Upstream_boundary)
+            TYPE IS(PHYSICAL_BOUNDARY)
+                t1=x%physical_boundaries_index
+                c1='ph'
+                SELECT TYPE(y=>reach%Downstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                            t2=y%reach_junctions_index
+                            c2='ju'
+                            !y=>network%physical_boundaries(t1)
+                            !x=>network%reach_junctions(t2)
 
-        ! Reverse boundaries
-        allocate(temp_reach_boundary, source=reach%Upstream_boundary)
-        call reach%Upstream_boundary%delete()
-        deallocate(reach%Upstream_boundary)
-        
-        allocate(reach%Upstream_boundary, source=reach%Downstream_boundary)
-        call reach%Downstream_boundary%delete()
-        deallocate(reach%Downstream_boundary)
-        allocate(reach%Downstream_boundary,source=temp_reach_boundary)
+                    TYPE IS(PHYSICAL_BOUNDARY)
+                            t2=y%physical_boundaries_index
+                            c2='ph'
+                            !y=>network%physical_boundaries(t1)
+                            !x=>network%physical_boundaries(t2)
+                END SELECT
 
-        call temp_reach_boundary%delete()
-        deallocate(temp_reach_boundary)
-             
+            TYPE IS(JUNCTION_BOUNDARY)
+                t1=x%reach_junctions_index
+                c1='ju'
+                SELECT TYPE(y=>reach%Downstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                            t2=y%reach_junctions_index
+                            c2='ju'
+                            !y=>network%reach_junctions(t1)
+                            !x=>network%reach_junctions(t2)
+                    TYPE IS(PHYSICAL_BOUNDARY)
+                            t2=y%physical_boundaries_index
+                            c2='ph'
+                            !y=>network%reach_junctions(t1)
+                            !x=>network%physical_boundaries(t2)
+                END SELECT
+
+        END SELECT
+           
+        ! Swap upstream and downstream boundaries 
+        IF(c2.EQ.'ju') THEN
+            reach%Upstream_boundary=> network%reach_junctions(t2)
+        ELSE
+            reach%Upstream_boundary=> network%physical_boundaries(t2)
+        END IF
+
+        IF(c1.EQ.'ju') THEN
+            reach%Downstream_boundary=> network%reach_junctions(t1)
+        ELSE
+            reach%Downstream_boundary=> network%physical_boundaries(t1)
+        END IF
+ 
         ! Make sure 'Q' at the boundaries has the right sign
         SELECT TYPE(x=>reach%Upstream_boundary)
         TYPE IS(PHYSICAL_BOUNDARY)
