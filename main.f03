@@ -29,7 +29,7 @@ PROGRAM main
     print*, 'Have set initial conditions'
 
     !print*, 'reversing reach data for sport'
-    !call reverse_reach_order(network%reach_data(1), network)
+    call reverse_reach_order(network%reach_data(1), network)
 
     ! Open output files
     call network%create_outfiles()
