@@ -277,6 +277,7 @@ module hecras_IO
 
 
         END DO ! while io_test/=0
+        xs=>NULL()
 
         rewind(input_file_unit_no)
     END SUBROUTINE READ_REACHES
@@ -414,6 +415,7 @@ module hecras_IO
             ! Clean up
             !call jb%delete()
         END DO
+        jb=> NULL()
 
         !print*, 'Finished junction routine'
         ! Back to start of file
@@ -609,7 +611,7 @@ module hecras_IO
                         !END DO
                         !print*, '....'
 
-                        ! FIXME: Nangka specific HACK
+                        ! FIXME: Nangka specific HACK to set the downstream boundary condition
                         print*, 'warning: setting the downstream boundary in a hacky way ...'
                         boundary_counter=boundary_counter+1
                         network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
@@ -618,6 +620,7 @@ module hecras_IO
                         this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
                         this_boundary%compute_method='stage'
                         !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                        network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
                        
                         !call this_boundary%delete() 
                     ELSE
@@ -628,6 +631,7 @@ module hecras_IO
 
             END IF
         END DO
+        this_boundary=> NULL()
 
     END SUBROUTINE
 

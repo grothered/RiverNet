@@ -233,7 +233,7 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
         REAL(dp):: Qtmp(reach_data%xsect_count)
-        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE.
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -255,6 +255,7 @@ MODULE network_solver
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
         !
+        IF(location_flags) print*, 'Start Pred'
 
         ! Compute Area predictor Apred_i = Alast_i + dT/dX_v*[Qlast_(i+1/2) - Qlast_(i-1/2)],
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
@@ -314,6 +315,7 @@ MODULE network_solver
         Area_pred(n) = reach_data%Area(n)
         Q_pred(n) = reach_data%Discharge(n)
 
+        IF(location_flags) print*, 'Pred boundaries'
         ! Try to enforce 'conservative' discharge boundaries
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
@@ -429,6 +431,7 @@ MODULE network_solver
         ! CORRECTOR STEP
 
         ! Compute Area corrector
+        IF(location_flags) print*, 'Start Cor'
         Area_cor(2:n) = reach_data%Area(2:n) -dT/delX_v(2:n)*&
                           (Q_pred(2:n) - Q_pred(1:n-1))
         ! Discharge Conservative boundary treatment.
@@ -509,6 +512,7 @@ MODULE network_solver
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
 
         !print*, 'before boundary', reach_data%Area(1), reach_data%Area(n)
+        IF(location_flags) print*, 'Boundary conditions'
         call apply_boundary_conditions(reach_data, time, dT, n)
 
        
