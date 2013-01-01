@@ -12,10 +12,11 @@ clean: main
 main: librivernet.a main.f03
 	$(COMPILER) main.f03 -o $@ librivernet.a
 
-# Here we copy the slatec archive to librivernet.a, and add the rivernet files
+# Here we copy the slatec archive to librivernet.a, and add the library files
 librivernet.a: global_defs.o one_d_relation_class.o xsect_classes.o reach_boundary_classes.o river_classes.o network_solver.o IO_util.o hecras_IO_b.o 
 	cp $(SLATEC) $@; ar rs $@ $^ 
 
+# Compile the library files
 hecras_IO_b.o: global_defs.o one_d_relation_class.o xsect_classes.o reach_boundary_classes.o river_classes.o IO_util.o hecras_IO_b.f03
 	$(COMPILER) -c hecras_IO_b.f03 
 
