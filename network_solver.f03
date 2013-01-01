@@ -96,7 +96,7 @@ MODULE network_solver
                 ! Impose stage, extrapolate discharge
                 reach_data%Stage(n) = reach_data%Downstream_boundary%eval(time+dT, 'stage')
                 reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-                reach_data%Discharge(n) = reach_data%Discharge(n-1)
+                !reach_data%Discharge(n) = reach_data%Discharge(n-1)
             ELSE IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
@@ -131,7 +131,7 @@ MODULE network_solver
                 ! Impose stage, extrapolate discharge
                 reach_data%Stage(1) = reach_data%Upstream_boundary%eval(time+dT, 'stage')
                 reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-                reach_data%Discharge(1) = reach_data%Discharge(2)
+                !reach_data%Discharge(1) = reach_data%Discharge(2)
             ELSE IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
@@ -261,6 +261,8 @@ MODULE network_solver
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
+        ! Nominal boundary condition
+        Area_pred(n) = reach_data%Area(n)
 
         ! Check it
         DO i=1,n-1
@@ -286,19 +288,27 @@ MODULE network_solver
         END IF
 
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
+        slope(n)=slope(n-1)
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
+        Af(n)=Af(n-1)
         ! Compute Q predictor with implicit friction
         ! Convective + gravity terms
-        Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
-                       dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
-                       -dT*gravity*Af(1:n-1)*slope(1:n-1) 
+        !Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
+        !               dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+        !               -dT*gravity*Af(1:n-1)*slope(1:n-1) 
+        Q_pred= reach_data%Discharge -  &
+                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), convective_flux(n)-convective_flux(n-1) /) &
+                       -dT*gravity*Af*slope 
 
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         IF(implicit_friction) THEN
-            drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
-                                      reach_data%Drag_1D(1:n-1) )
-            DO i=1,n-1
+            !drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
+            !                          reach_data%Drag_1D(1:n-1) )
+            drag_factor=1.0_dp*(gravity*Af*(-sign(1._dp, Q_pred)/(Area_pred**2))*&
+                                      reach_data%Drag_1D )
+            !DO i=1,n-1
+            DO i=1,n
                  IF(abs(drag_factor(i)) > 0._dp) THEN
                     Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
                  ELSE
@@ -306,14 +316,16 @@ MODULE network_solver
                  END IF
             END DO
         ELSE
-            Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*Discharge_old(1:n-1)*abs(Discharge_old(1:n-1))/&
-                                            (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
+            !Q_pred(1:n-1) = Q_pred(1:n-1) -dT*gravity*Af(1:n-1)*Discharge_old(1:n-1)*abs(Discharge_old(1:n-1))/&
+            !                                (reach_data%Area(1:n-1)**2+small_positive_real)*reach_data%Drag_1D(1:n-1)
+            Q_pred = Q_pred -dT*gravity*Af*Discharge_old*abs(Discharge_old)/&
+                                            (reach_data%Area**2+small_positive_real)*reach_data%Drag_1D
 
         END IF
         
         ! BOUNDARY CONDITIONS: NOMINAL ONLY -- we fix at the end. They only affect A_cor(n), Q_cor(n)
-        Area_pred(n) = reach_data%Area(n)
-        Q_pred(n) = reach_data%Discharge(n)
+        !Area_pred(n) = reach_data%Area(n)
+        !Q_pred(n) = reach_data%Discharge(n)
 
         IF(location_flags) print*, 'Pred boundaries'
 
@@ -425,7 +437,8 @@ MODULE network_solver
 
         ! Wet dry hack
         IF(wet_dry_hacks) THEN
-            Q_pred=merge(Q_pred, 0._dp*Q_pred, Area_pred/max(Width_pred,1.0_dp) > reach_data%wet_dry_depth)
+            Q_pred(1:n-1)=merge(Q_pred(1:n-1), 0._dp*Q_pred(1:n-1),&
+                           Area_pred(1:n-1)/max(Width_pred(1:n-1),1.0_dp) > reach_data%wet_dry_depth)
         END IF
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -468,19 +481,27 @@ MODULE network_solver
             convective_flux=dry_flag*0._dp
         END IF
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
+        slope(1) = slope(2)
         
         ! Compute Q corrector with implicit friction
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
+        Ab(1) = Ab(2)
         ! Convective + gravity terms
-        Q_cor(2:n) = reach_data%Discharge(2:n) -  &
-                       dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
-                       -dT*gravity*Ab(2:n)*slope(2:n) 
+        !Q_cor(2:n) = reach_data%Discharge(2:n) -  &
+        !               dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
+        !               -dT*gravity*Ab(2:n)*slope(2:n) 
+        Q_cor = reach_data%Discharge -  &
+                       dT/delX_v*(/ convective_flux(2) - convective_flux(1),(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       -dT*gravity*Ab*slope 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
         IF(implicit_friction) THEN
-            drag_factor(2:n)=1.0_dp*(gravity*Ab(2:n)*&
-                             (-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
-            DO i=2,n
+            !drag_factor(2:n)=1.0_dp*(gravity*Ab(2:n)*&
+            !                 (-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
+            drag_factor=1.0_dp*(gravity*Ab*&
+                             (-sign(1._dp, Q_cor)/(Area_cor**2))*Drag1D_pred )
+            !DO i=2,n
+            DO i=1,n
                  IF(abs(drag_factor(i)) > 0._dp) THEN
                     Q_cor(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_cor(i) ))/(2._dp*dT*drag_factor(i))
                  ELSE
@@ -488,8 +509,10 @@ MODULE network_solver
                  END IF
             END DO
         ELSE
-            Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
-                                            (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
+            !Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*Q_pred(2:n)*abs(Q_pred(2:n))/&
+            !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
+            Q_cor(1:n) = Q_cor(1:n) -dT*gravity*Ab(1:n)*Q_pred(1:n)*abs(Q_pred(1:n))/&
+                                            (Area_pred(1:n)**2+small_positive_real)*Drag1D_pred(1:n)
 
             !Q_cor(2:n) = Q_cor(2:n) -dT*gravity*Ab(2:n)*reach_data%Discharge_con(2:n)*abs(reach_data%Discharge_con(2:n))/&
             !                                (Area_pred(2:n)**2+small_positive_real)*Drag1D_pred(2:n)
@@ -509,7 +532,8 @@ MODULE network_solver
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! COMPUTE 'FINAL' UPDATE
 
-        reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
+        !reach_data%Discharge(2:n-1)= 0.5_dp*(Q_pred(2:n-1) + Q_cor(2:n-1))
+        reach_data%Discharge(1:n)= 0.5_dp*(Q_pred(1:n) + Q_cor(1:n))
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
 
         !print*, 'before boundary', reach_data%Area(1), reach_data%Area(n)
@@ -529,8 +553,8 @@ MODULE network_solver
 
         ! Wet dry hack
         IF(wet_dry_hacks) THEN
-            reach_data%Discharge=merge(reach_data%Discharge, 0._dp*reach_data%Discharge, &
-                                   reach_data%Area/max(reach_data%Width,1.0_dp) > reach_data%wet_dry_depth)
+            reach_data%Discharge(2:n-1)=merge(reach_data%Discharge(2:n-1), 0._dp*reach_data%Discharge(2:n-1), &
+                                   reach_data%Area(2:n-1)/max(reach_data%Width(2:n-1),1.0_dp) > reach_data%wet_dry_depth)
             ! NOW, enforce a no-drying limit on Area
             ! outgoing_flux < cell volume
             ! Try to prevent negative depths on the next A_pred, by ensuring that 

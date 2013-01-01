@@ -25,11 +25,11 @@ PROGRAM main
     call read_hecras_boundary_conditions(input_boundary_file, network) 
     
     ! Set the initial conditions
-    call set_initial_conditions(network%reach_data(1), 1.0e-00_dp, 0._dp)
+    call set_initial_conditions(network%reach_data(1), 1.0e-04_dp, 0._dp)
     print*, 'Have set initial conditions'
 
     !print*, 'reversing reach data for sport'
-    call reverse_reach_order(network%reach_data(1), network)
+    !call reverse_reach_order(network%reach_data(1), network)
 
     ! Open output files
     call network%create_outfiles()
@@ -42,7 +42,7 @@ PROGRAM main
         call evolve_hydraulics(network)
         !call network%reach_data(1)%reverse_reach_order()
         !print*, 'reversing reach data for sport'
-        call reverse_reach_order(network%reach_data(1), network)
+        !call reverse_reach_order(network%reach_data(1), network)
     END DO
 
     ! Close the output files

@@ -1952,7 +1952,7 @@ Flow Hydrograph= 8641
        0       0       0       0       0       0       0       0       0       0
        0       0       0       0       0       0       0       0       0       0
        0
-Flow Hydrograph QMin= 1.00
+Flow Hydrograph QMin= 0.00
 DSS Path=
 Use DSS=False
 CWMS InputPosition= 0 
