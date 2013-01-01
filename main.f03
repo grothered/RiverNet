@@ -41,6 +41,7 @@ PROGRAM main
         
         call evolve_hydraulics(network)
         !call network%reach_data(1)%reverse_reach_order()
+        !print*, 'reversing reach data for sport'
         !call reverse_reach_order(network%reach_data(1), network)
     END DO
 

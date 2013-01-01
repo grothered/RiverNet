@@ -238,7 +238,7 @@ MODULE river_classes
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE reverse_reach_order(reach, network)
         CLASS(reach_data_type), INTENT(INOUT)::reach
-        CLASS(network_data_type), INTENT(IN), TARGET:: network
+        CLASS(network_data_type), INTENT(INOUT), TARGET:: network
 
         INTEGER(ip):: i, t1, t2
         CHARACTER(charlen):: c1, c2
@@ -248,36 +248,18 @@ MODULE river_classes
             TYPE IS(PHYSICAL_BOUNDARY)
                 t1=x%physical_boundaries_index
                 c1='ph'
-                SELECT TYPE(y=>reach%Downstream_boundary)
-                    TYPE IS(JUNCTION_BOUNDARY)
-                            t2=y%reach_junctions_index
-                            c2='ju'
-                            !y=>network%physical_boundaries(t1)
-                            !x=>network%reach_junctions(t2)
-
-                    TYPE IS(PHYSICAL_BOUNDARY)
-                            t2=y%physical_boundaries_index
-                            c2='ph'
-                            !y=>network%physical_boundaries(t1)
-                            !x=>network%physical_boundaries(t2)
-                END SELECT
-
             TYPE IS(JUNCTION_BOUNDARY)
                 t1=x%reach_junctions_index
                 c1='ju'
-                SELECT TYPE(y=>reach%Downstream_boundary)
-                    TYPE IS(JUNCTION_BOUNDARY)
-                            t2=y%reach_junctions_index
-                            c2='ju'
-                            !y=>network%reach_junctions(t1)
-                            !x=>network%reach_junctions(t2)
-                    TYPE IS(PHYSICAL_BOUNDARY)
-                            t2=y%physical_boundaries_index
-                            c2='ph'
-                            !y=>network%reach_junctions(t1)
-                            !x=>network%physical_boundaries(t2)
-                END SELECT
+        END SELECT
 
+        SELECT TYPE(x=>reach%Downstream_boundary)
+            TYPE IS(JUNCTION_BOUNDARY)
+                    t2=x%reach_junctions_index
+                    c2='ju'
+            TYPE IS(PHYSICAL_BOUNDARY)
+                    t2=x%physical_boundaries_index
+                    c2='ph'
         END SELECT
            
         ! Swap upstream and downstream boundaries 
@@ -294,6 +276,7 @@ MODULE river_classes
         END IF
  
         ! Make sure 'Q' at the boundaries has the right sign
+        ! Note: This modifies the boundary conditions in 'network'
         SELECT TYPE(x=>reach%Upstream_boundary)
         TYPE IS(PHYSICAL_BOUNDARY)
             x%Boundary_t_w_Q%x_y(:,3) = - x%Boundary_t_w_Q%x_y(:,3)
