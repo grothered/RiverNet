@@ -242,10 +242,10 @@ MODULE network_solver
         ! Use channel delX as temporary delX here
 
         ! delX gives the distance between cross-sections
-        delX = reach_data%downstream_dists(:,2)
+        delX=reach_data%delX
         ! delX_v denotes the lengths of each 'volume', centred around each
         ! cross-section, with boundaries at the mid-point between cross-sections
-        delX_v = (/0.5_dp*delX(1),  0.5_dp*(delX(1:n-1) + delX(2:n)  ) /) 
+        delX_v=reach_data%delX_v
 
         IF(minval(delX_v)<=0._dp) THEN
             print*, 'ERROR: min delX_v <= 0'
@@ -261,7 +261,7 @@ MODULE network_solver
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
-        ! Nominal boundary condition
+        ! Boundary condition
         Area_pred(n) = reach_data%Area(n)
 
         ! Check it
@@ -349,33 +349,6 @@ MODULE network_solver
 
 
         IF(wet_dry_hacks) THEN
-            ! NOW, enforce a no-drying limit on Area
-            ! outgoing_flux < cell volume
-            ! Try to prevent negative depths by ensuring that 
-            ! 'Outflow volume <= volume in cell'
-            ! 0.5*(Q_pred(i)+reach_data%Discharge(i+1))*dT <= Area(i)*delX_v(i)
-            DO i=1,n-1
-                Qcon = 0.5_dp*(Q_pred(i) + reach_data%Discharge(i+1)) ! = Qcon(i+1/2)
-                IF(Qcon>0._dp) THEN
-                    IF(Qcon*dT> reach_data%Area(i)*delX_v(i)-small_positive_real) THEN
-                        Q_pred(i) = max( (2.0_dp*reach_data%Area(i)*delX_v(i) - reach_data%Discharge(i+1)*dT)/dT & 
-                                          -small_positive_real, 0._dp)
-                    END IF
-                ELSE
-                    IF(abs(Qcon)*dT> reach_data%Area(i+1)*delX_v(i+1)-small_positive_real) THEN
-                        Q_pred(i) =-max((2.0_dp*reach_data%Area(i+1)*delX_v(i+1)- &
-                                        reach_data%Discharge(i+1)*dT)/dT-small_positive_real, 0._dp)
-                    END IF
-                END IF
-            END DO
-            
-            ! As above for Qpred_zero
-            Qcon=0.5_dp*(Qpred_zero + reach_data%Discharge(1))
-            IF(Qcon<0._dp) THEN
-                IF(abs(Qcon)*dT > reach_data%Area(1)*delX_v(1)-small_positive_real) THEN
-                   Qpred_zero =-max((2.0_dp*reach_data%Area(1)*delX_v(1)-reach_data%Discharge(1)*dT)/dT-small_positive_real, 0._dp)
-                END IF
-            END IF
 
             ! NOW, enforce a no-drying limit on Area_cor
             ! Idea: Don't allow Q_pred(i) > volume in cell i-1 (if Q_pred is positive)
@@ -443,14 +416,13 @@ MODULE network_solver
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! CORRECTOR STEP
+        IF(location_flags) print*, 'Start Cor'
 
         ! Compute Area corrector
-        IF(location_flags) print*, 'Start Cor'
         Area_cor(2:n) = reach_data%Area(2:n) -dT/delX_v(2:n)*&
                           (Q_pred(2:n) - Q_pred(1:n-1))
         ! Discharge Conservative boundary treatment.
         Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
-        !Area_cor(1) = Area_pred(1)!reach_data%Area(1)
         
         ! ERROR CHECK
         DO i=1,n
@@ -480,10 +452,11 @@ MODULE network_solver
         ELSE
             convective_flux=dry_flag*0._dp
         END IF
+
+        ! Extrapolate Slope and Ab at 1
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         slope(1) = slope(2)
-        
-        ! Compute Q corrector with implicit friction
+     
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
         Ab(1) = Ab(2)
         ! Convective + gravity terms
@@ -596,29 +569,12 @@ MODULE network_solver
             END DO
 
 
-            ! Here, we check for changes in the sign of Q. This could
-            ! voilate the no-dry logic above. Can fix by setting 1 value to zero
-            !DO i=2,n
-            !    IF(sign(1.0_dp, reach_data%Discharge(i)) == -1._dp*sign(1.0_dp, reach_data%Discharge(i-1)) ) THEN
-            !        IF( (reach_data%Discharge(i)-reach_data%Discharge(i-1)) > &
-            !             reach_data%Area(i-1)*delX_v(i-1)/dT-small_positive_real  ) THEN
-            !            IF(abs(reach_data%Discharge(i))<abs(reach_data%Discharge(i-1))) THEN
-            !                reach_data%Discharge(i)=0._dp
-            !            ELSE
-            !                reach_data%Discharge(i-1)=0._dp
-            !            END IF
-            !        END IF
-            !    END IF
-            !END DO
         END IF
         ! Compute 'conservative' discharge, which is much better behaved than
         ! pointwise discharge
         reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),&
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
-        !reach_data%Discharge = (/ reach_data%Discharge(1), &
-        !                          0.5_dp*(reach_data%Discharge_con(1:n-1) + reach_data%Discharge_con(2:n)), &
-        !                          reach_data%Discharge(n) /)
 
     END SUBROUTINE one_mccormack_step
 END MODULE network_solver

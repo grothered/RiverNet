@@ -37,7 +37,7 @@ MODULE river_classes
  
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
         ! for the left & right banks + channel
-        REAL(dp), ALLOCATABLE:: downstream_dists(:,:)
+        REAL(dp), ALLOCATABLE:: downstream_dists(:,:), delX(:), delX_v(:)
 
         ! Depth at which we set velocity/fluxes to zero to prevent bad solver behaviour
         REAL(dp):: wet_dry_depth=wet_dry_depth
@@ -194,6 +194,22 @@ MODULE river_classes
         DO i=1,reach%xsect_count
             reach%downstream_dists(i,:) = reach%xsects(i)%downstream_dists
         END DO
+
+        ! Set delX and delX_v
+        ALLOCATE(reach%delX( reach%xsect_count))
+        ALLOCATE(reach%delX_v( reach%xsect_count))
+        
+        ! delX gives the distance between cross-sections
+        reach%delX = reach%downstream_dists(:,2)
+        ! delX_v denotes the lengths of each 'volume', centred around each
+        ! cross-section, with boundaries at the mid-point between cross-sections
+        reach%delX_v = (/0.5_dp*reach%delX(1),  0.5_dp*(reach%delX(1:reach%xsect_count-1) + reach%delX(2:reach%xsect_count)  ) /) 
+
+        IF(minval(reach%delX_v)<=0._dp) THEN
+            print*, 'ERROR: min delX_v <= 0'
+            print*, reach%delX_v
+            stop
+        END IF
 
     END SUBROUTINE get_downstream_dists_from_xsections
 
