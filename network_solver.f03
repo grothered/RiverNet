@@ -316,6 +316,7 @@ MODULE network_solver
         Q_pred(n) = reach_data%Discharge(n)
 
         IF(location_flags) print*, 'Pred boundaries'
+
         ! Try to enforce 'conservative' discharge boundaries
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
@@ -587,7 +588,7 @@ MODULE network_solver
             !END DO
         END IF
         ! Compute 'conservative' discharge, which is much better behaved than
-        ! pointwise discharge -- it exists at points (i+1/2)
+        ! pointwise discharge
         reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),&
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
