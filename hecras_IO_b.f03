@@ -610,10 +610,13 @@ module hecras_IO
                         !print*, '....'
 
                         ! FIXME: Nangka specific HACK
-                        !print*, 'warning: setting the downstream boundary in a hacky way ...'
-                        !this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
-                        !this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
-                        !this_boundary%compute_method='stage'
+                        print*, 'warning: setting the downstream boundary in a hacky way ...'
+                        boundary_counter=boundary_counter+1
+                        network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
+                        this_boundary=> network%physical_boundaries(boundary_counter)
+                        this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
+                        this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        this_boundary%compute_method='stage'
                         !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
                        
                         !call this_boundary%delete() 
