@@ -284,23 +284,23 @@ module hecras_IO
     SUBROUTINE read_junctions(input_file_unit_no, network)
         ! Read information from hecras file about junctions into network structure
         INTEGER(ip), INTENT(IN):: input_file_unit_no
-        TYPE(network_data_type), INTENT(INOUT)::network
+        TYPE(network_data_type), TARGET, INTENT(INOUT)::network
 
         INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0, tmp
-        TYPE(JUNCTION_BOUNDARY):: jb
+        TYPE(JUNCTION_BOUNDARY), POINTER:: jb
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
         REAL(dp):: temp_reals(veclen)
         
 
         ! Count the number of junctions, and allocate space for them
         network%num_junctions= count_line_matches(input_file_unit_no, "Junct Name=", "(A11)")
-        ALLOCATE(network%reach_junctions(network%num_junctions))
+        !ALLOCATE(network%reach_junctions(network%num_junctions))
         
         ! Go to the start of the file
         rewind(input_file_unit_no)
 
         ! Loop over all the junctions
-        jb%boundary_type='junction_boundary'
+        !jb%boundary_type='junction_boundary'
         DO WHILE (io_test>=0)
             ! Go to next line matching 'Junct Name='
             !print*, 'Finding match'
@@ -308,7 +308,9 @@ module hecras_IO
             !print*, 'io_test=', io_test
             IF(io_test<0) EXIT
             junction_count=junction_count+1
-            
+
+            jb=>network%reach_junctions(junction_count)
+            jb%boundary_type='junction_boundary'    
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Read the junction information           
             ! Looks like this:
@@ -395,13 +397,13 @@ module hecras_IO
             DO i=1,join_count
                 tmp=jb%reach_index(i)                    
                 IF(jb%reach_ends(i)=='Up') THEN
-                    print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
-                    stop
-                    !network%reach_data(tmp)%Downstream_boundary => network%reach_junctions(junction_count) 
+                    !print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
+                    !stop
+                    network%reach_data(tmp)%Downstream_boundary => network%reach_junctions(junction_count) 
                 ELSEIF(jb%reach_ends(i)=='Dn') THEN
-                    print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
-                    stop
-                    !network%reach_data(tmp)%Upstream_boundary => network%reach_junctions(junction_count) 
+                    !print*, 'NEED TO FIGURE OUT THE FINAL SET-UP OF JUNCTION BOUNDARIES'
+                    !stop
+                    network%reach_data(tmp)%Upstream_boundary => network%reach_junctions(junction_count) 
                 ELSE
                     print*, 'ERROR: junction reach_ends(', i,') not recognised ', jb%reach_ends(i)
                     stop
@@ -410,7 +412,7 @@ module hecras_IO
             END DO
 
             ! Clean up
-            call jb%delete()
+            !call jb%delete()
         END DO
 
         !print*, 'Finished junction routine'
@@ -485,7 +487,7 @@ module hecras_IO
         ! Read a hecras .uXX boundary conditions file into the network object
 
         CHARACTER(len=charlen), INTENT(IN):: input_boundary_file
-        TYPE(network_data_type), INTENT(INOUT):: network
+        TYPE(network_data_type), INTENT(INOUT), TARGET:: network
         !LOGICAL, INTENT(IN):: print_output
 
         ! Local vars       
@@ -496,7 +498,7 @@ module hecras_IO
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
-        TYPE(PHYSICAL_BOUNDARY):: this_boundary
+        TYPE(PHYSICAL_BOUNDARY), POINTER:: this_boundary
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
@@ -543,6 +545,7 @@ module hecras_IO
 
                         ! Allocate data
                         !ALLOCATE(this_boundary)
+                        this_boundary=>network%physical_boundaries(boundary_counter)
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
 
@@ -587,14 +590,14 @@ module hecras_IO
 
                         IF(bnd_station==station1) THEN
                             print*, 'Upstream boundary'
-                            allocate(network%reach_data(i)%Upstream_boundary, source=this_boundary)
+                            !allocate(network%reach_data(i)%Upstream_boundary, source=this_boundary)
                             !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
-                            !network%reach_data(i)%Upstream_boundary=> network%physical_boundaries(boundary_counter)
+                            network%reach_data(i)%Upstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSEIF(bnd_station==stationN) THEN
                             print*, 'Downstream boundary'
-                            allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                            !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
                             !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
-                            !network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
+                            network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSE
                             print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
                             stop
@@ -607,15 +610,13 @@ module hecras_IO
                         !print*, '....'
 
                         ! FIXME: Nangka specific HACK
-                        print*, 'warning: setting the downstream boundary in a hacky way ...'
-                        this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
-                        this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
-                        this_boundary%compute_method='stage'
-                        allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+                        !print*, 'warning: setting the downstream boundary in a hacky way ...'
+                        !this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
+                        !this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        !this_boundary%compute_method='stage'
+                        !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
                        
-                        call this_boundary%delete() 
-                        ! Clean up
-                        !DEALLOCATE(this_boundary)
+                        !call this_boundary%delete() 
                     ELSE
                         print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, bnd_station, &
                                 ', but these were not found in network geometry'
