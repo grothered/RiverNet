@@ -28,8 +28,8 @@ PROGRAM main
     call set_initial_conditions(network%reach_data(1), 1.0e-03_dp, 0._dp)
     print*, 'Have set initial conditions'
 
-    print*, 'reversing reach data for sport'
-    call reverse_reach_order(network%reach_data(1), network)
+    !print*, 'reversing reach data for sport'
+    !call reverse_reach_order(network%reach_data(1), network)
 
     ! Open output files
     call network%create_outfiles()
@@ -41,6 +41,7 @@ PROGRAM main
         
         call evolve_hydraulics(network)
         !call network%reach_data(1)%reverse_reach_order()
+        !call reverse_reach_order(network%reach_data(1), network)
     END DO
 
     ! Close the output files
