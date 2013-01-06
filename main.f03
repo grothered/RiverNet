@@ -8,8 +8,8 @@ PROGRAM main
 
     !TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:) ! Array of reaches
     TYPE(NETWORK_DATA_TYPE):: network
-    CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
-    !CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
+    !CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
+    CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
     CHARACTER(len=charlen):: input_boundary_file='./eg/test.u03'
 
     INTEGER(ip):: i, N_flow, N_time, M
@@ -24,7 +24,7 @@ PROGRAM main
 
     ! Set the boundary conditions
     call read_hecras_boundary_conditions(input_boundary_file, network) 
-    
+    stop
     ! Set the initial conditions
     call set_initial_conditions(network%reach_data(1), 1.0e-04_dp, 0._dp)
     print*, 'Have set initial conditions'

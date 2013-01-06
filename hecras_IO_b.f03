@@ -414,7 +414,7 @@ module hecras_IO
             END DO
 
             ! Clean up
-            !call jb%delete()
+            call jb%delete()
         END DO
         jb=> NULL()
 
@@ -508,7 +508,9 @@ module hecras_IO
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
 
         ! Make space for storing the physical boundaries
-        !num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', 'A18')
+        num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', 'A18')
+        print*, num_physical_bounds
+        stop
         !allocate(network%physical_boundaries(num_physical_bounds))
 
         ! Loop over every 'Boundary Location' line, and possibly suck the data into a reach boundary
@@ -605,18 +607,20 @@ module hecras_IO
                         END IF
                         
                         ! FIXME: Nangka specific HACK to set the downstream boundary condition
-                        print*, 'warning: setting the downstream boundary in a hacky way ...'
-                        boundary_counter=boundary_counter+1
-                        network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
-                        this_boundary=> network%physical_boundaries(boundary_counter)
-                        this_boundary%physical_boundaries_index=boundary_counter
-                        this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
-                        this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
-                        this_boundary%compute_method='stage'
+                        !print*, 'warning: setting the downstream boundary in a hacky way ...'
+                        !boundary_counter=boundary_counter+1
+                        !network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
+                        !this_boundary=> network%physical_boundaries(boundary_counter)
+                        !this_boundary%physical_boundaries_index=boundary_counter
+                        !this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
+                        !this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        !this_boundary%compute_method='stage'
 
-                        network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
+                        !network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
                         ! END NANGKA SPECIFIC HACK
-                       
+                      
+                        !call this_boundary%delete() 
+                        this_boundary=>NULL()
                     END IF
                 END DO
 
