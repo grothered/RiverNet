@@ -551,7 +551,6 @@ module hecras_IO
                         END IF
 
                         ! Allocate data
-                        !ALLOCATE(this_boundary)
                         this_boundary=>network%physical_boundaries(boundary_counter)
                         this_boundary%physical_boundaries_index=boundary_counter
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
@@ -566,7 +565,6 @@ module hecras_IO
 
                         ! Set compute method
                         this_boundary%compute_method='discharge'
-
                         print*, this_boundary%Boundary_t_w_Q%varnames
 
                         ! Make up time / water surface
@@ -595,28 +593,17 @@ module hecras_IO
                         read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
                         read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
 
-
                         IF(bnd_station==station1) THEN
                             print*, 'Upstream boundary'
-                            !allocate(network%reach_data(i)%Upstream_boundary, source=this_boundary)
-                            !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
                             network%reach_data(i)%Upstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSEIF(bnd_station==stationN) THEN
                             print*, 'Downstream boundary'
-                            !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
-                            !allocate(network%physical_boundaries(boundary_counter), source=this_boundary)
                             network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSE
                             print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
                             stop
                         END IF
                         
-                        !print*, 'Boundary data ....'
-                        !DO j=1,bnd_data_length
-                        !    print*, this_boundary%Boundary_t_w_Q%x_y(j,:)
-                        !END DO
-                        !print*, '....'
-
                         ! FIXME: Nangka specific HACK to set the downstream boundary condition
                         print*, 'warning: setting the downstream boundary in a hacky way ...'
                         boundary_counter=boundary_counter+1
@@ -626,8 +613,9 @@ module hecras_IO
                         this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
                         this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
                         this_boundary%compute_method='stage'
-                        !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
+
                         network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
+                        ! END NANGKA SPECIFIC HACK
                        
                     END IF
                 END DO
