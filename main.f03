@@ -24,7 +24,7 @@ PROGRAM main
 
     ! Set the boundary conditions
     call read_hecras_boundary_conditions(input_boundary_file, network) 
-    stop
+    !stop
     ! Set the initial conditions
     call set_initial_conditions(network%reach_data(1), 1.0e-04_dp, 0._dp)
     print*, 'Have set initial conditions'

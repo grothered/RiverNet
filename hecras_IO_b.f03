@@ -501,7 +501,7 @@ module hecras_IO
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen)
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
-        TYPE(PHYSICAL_BOUNDARY), POINTER:: this_boundary
+        TYPE(PHYSICAL_BOUNDARY), POINTER:: this_boundary=>NULL()
         LOGICAL:: matched_with_river
 
         ! Open the input file
@@ -619,7 +619,7 @@ module hecras_IO
                         !network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
                         ! END NANGKA SPECIFIC HACK
                       
-                        !call this_boundary%delete() 
+                        call this_boundary%delete() 
                         this_boundary=>NULL()
                     END IF
                 END DO
