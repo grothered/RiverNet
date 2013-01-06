@@ -4,11 +4,12 @@ PROGRAM main
     USE hecras_IO
     USE river_classes
     USE network_solver
+    IMPLICIT NONE
 
     !TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:) ! Array of reaches
     TYPE(NETWORK_DATA_TYPE):: network
-    !CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
-    CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
+    CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
+    !CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
     CHARACTER(len=charlen):: input_boundary_file='./eg/test.u03'
 
     INTEGER(ip):: i, N_flow, N_time, M
@@ -29,7 +30,7 @@ PROGRAM main
     print*, 'Have set initial conditions'
 
     !print*, 'reversing reach data for sport'
-    call reverse_reach_order(network%reach_data(1), network)
+    !call reverse_reach_order(network%reach_data(1), network)
 
     ! Open output files
     call network%create_outfiles()

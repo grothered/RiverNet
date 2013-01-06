@@ -502,6 +502,7 @@ module hecras_IO
         CHARACTER(len=charlen):: temp_char_vec(veclen)
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
         TYPE(PHYSICAL_BOUNDARY), POINTER:: this_boundary
+        LOGICAL:: matched_with_river
 
         ! Open the input file
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
@@ -515,6 +516,7 @@ module hecras_IO
 
             ! Find lines matching 'Boundary Location=' in the input file
             CALL next_match(input_file_unit_no, 'Boundary Location=', io_test,'(A18)')
+            matched_with_river=.FALSE.
             
             IF(io_test==0) THEN
                 BACKSPACE(input_file_unit_no)
@@ -525,7 +527,9 @@ module hecras_IO
                 DO i=1,network%num_reaches
                     river_name=network%reach_data(i)%names(1)
                     reach_name=network%reach_data(i)%names(2)
+
                     IF( (trim(river_name)==trim(bnd_river_name)).AND.(trim(reach_name)==trim(bnd_reach_name))) THEN
+                        matched_with_river=.TRUE.
                         print*, 'Found boundary at ', trim(river_name),' ', trim(reach_name)
                         boundary_counter=boundary_counter+1
 
@@ -625,12 +629,14 @@ module hecras_IO
                         !allocate(network%reach_data(i)%Downstream_boundary, source=this_boundary)
                         network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
                        
-                        !call this_boundary%delete() 
-                    ELSE
-                        print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, bnd_station, &
-                                ', but these were not found in network geometry'
                     END IF
                 END DO
+
+                !Report on boundaries which are not matched to a river
+                IF(matched_with_river.EQV..FALSE.) THEN
+                        print*,'Boundary conditions specified at ', bnd_river_name, bnd_reach_name, bnd_station, &
+                                ', but these were not found in network geometry'
+                END IF
 
             END IF
         END DO
