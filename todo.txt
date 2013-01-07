@@ -11,4 +11,7 @@ figuring out some mass conservation issues.
 5) Look at the effect of reversing the reach orientation on the results.
     12/12/2012 -- Seems to have an effect at the boundaries. Nangka case had
     boundary artifacts with one orientation, none with the other. Both
-    orientations had similar computed flow in channel interior.
+    orientations had similar computed flow in channel interior. 
+    However, my 'wet-dry' hacks are not guarenteed with reversal
+
+6) Add a check to ensure that boundary conditions have been allocated etc -- otherwise we segfault
