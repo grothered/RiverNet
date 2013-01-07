@@ -14,4 +14,4 @@ figuring out some mass conservation issues.
     orientations had similar computed flow in channel interior. 
     However, my 'wet-dry' hacks are not guarenteed with reversal
 
-6) Add a check to ensure that boundary conditions have been allocated etc -- otherwise we segfault
+6) Add a check to ensure that boundary conditions have been allocated etc -- otherwise we segfault!
