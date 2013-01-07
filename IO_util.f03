@@ -140,16 +140,17 @@ MODULE IO_util
         INTEGER(ip):: io_test
 
         rewind(input_file_unit_no)
-        
+       
         io_test=0
         count_line_matches=0
         DO WHILE (io_test>=0)
            call next_match(input_file_unit_no, pattern, io_test,format_string)
 
            IF(io_test>=0) count_line_matches=count_line_matches+1  
-
         END DO
-
+        !print*, count_line_matches
+        !print*, io_test
+        !stop
         rewind(input_file_unit_no)
 
     END FUNCTION count_line_matches

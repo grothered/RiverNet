@@ -288,7 +288,7 @@ module hecras_IO
         TYPE(network_data_type), TARGET, INTENT(INOUT)::network
 
         INTEGER(ip):: io_test=0, i, join_count, j, junction_count=0, tmp
-        TYPE(JUNCTION_BOUNDARY), POINTER:: jb
+        TYPE(JUNCTION_BOUNDARY), POINTER:: jb=>NULL()
         CHARACTER(len=charlen):: temp_char, temp_chars(veclen)
         REAL(dp):: temp_reals(veclen)
         
@@ -393,7 +393,7 @@ module hecras_IO
                 jb%distances(join_count)=0._dp
 
             ! Stick it into the reach_junctions
-            network%reach_junctions(junction_count)=jb
+            !network%reach_junctions(junction_count)=jb
 
             ! Point the reach boundaries to the junction information
             DO i=1,join_count
@@ -414,7 +414,8 @@ module hecras_IO
             END DO
 
             ! Clean up
-            call jb%delete()
+            !call jb%delete()
+            jb=> NULL()
         END DO
         jb=> NULL()
 
@@ -508,9 +509,10 @@ module hecras_IO
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
 
         ! Make space for storing the physical boundaries
-        num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', 'A18')
+        num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', '(A18)')
+        !stop
         print*, num_physical_bounds
-        stop
+        !stop
         !allocate(network%physical_boundaries(num_physical_bounds))
 
         ! Loop over every 'Boundary Location' line, and possibly suck the data into a reach boundary
