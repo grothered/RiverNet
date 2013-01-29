@@ -651,8 +651,11 @@ module hecras_IO
                             print*, 'Downstream boundary'
                             network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSE
-                            print*, 'ERROR -- didnt find the right station ', bnd_station, station1, stationN
-                            stop
+                            IF((trim(hec_bnd_type).EQ. 'Flow Hydrograph=').OR. &
+                               (trim(hec_bnd_type).EQ. 'Stage Hydrograph=')) THEN
+                                print*, 'ERROR -- didnt find the right station ', bnd_station, station1, stationN
+                                stop
+                            END IF
                         END IF
                         
                         ! FIXME: Nangka specific HACK to set the downstream boundary condition
