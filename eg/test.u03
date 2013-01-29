@@ -3044,17 +3044,6 @@ Use Fixed Start Time=False
 Fixed Start Date/Time=,
 Is Critical Boundary=False
 Critical Boundary Flow=
-Boundary Location=Marikina River  ,Floodway        ,0       ,        ,                ,                ,                
-Interval=1YEAR
-Stage Hydrograph= 3 
-    12.5    12.5    12.5
-DSS Path=
-Use DSS=False
-CWMS InputPosition= 0 
-Use Fixed Start Time=False
-Fixed Start Date/Time=,
-Is Critical Boundary=False
-Critical Boundary Flow=
 Boundary Location=Marikina River  ,Floodway4       ,0       ,        ,                ,                ,                
 Interval=1HOUR
 Stage Hydrograph= 168 

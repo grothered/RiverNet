@@ -496,11 +496,13 @@ module hecras_IO
 
         ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
-        INTEGER(ip):: lb, ub, num_physical_bounds, boundary_counter=0
-        REAL(dp):: Qmin
-        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station, hec_bnd_type, interval
+        INTEGER(ip):: lb, ub, num_physical_bounds, boundary_counter=0, myind
+        REAL(dp):: Qmin, dt_boundary
+        CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station
+        CHARACTER(len=charlen):: interval
+        CHARACTER(len=charlen):: hec_bnd_type
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
-        CHARACTER(len=charlen):: temp_char_vec(veclen)
+        CHARACTER(len=charlen):: temp_char_vec(veclen), temp_char
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
         TYPE(PHYSICAL_BOUNDARY), POINTER:: this_boundary=>NULL()
         LOGICAL:: matched_with_river
@@ -540,19 +542,33 @@ module hecras_IO
 
                         ! Read data time increment
                         read(input_file_unit_no, *) interval
-                        IF(trim(interval).NE.'Interval=1MIN') THEN
-                            print*, 'ERROR: Have only implemented time boundaries with 1MIN spacing'
+                        SELECT CASE(trim(interval))
+                        CASE('Interval=1MIN')
+                            dt_boundary=60._dp
+                        CASE('Interval=1HOUR')
+                            dt_boundary=60*60._dp
+                        CASE('Interval=1DAY')
+                            dt_boundary=24*60*60._dp
+                        CASE('Interval=1WEEK')
+                            dt_boundary=7*24*60*60._dp
+                        CASE('Interval=1MON')
+                            print*, 'Warning: Incorrect implementation of 1MON boundary'
+                            dt_boundary=31*24*60*60._dp
+                        CASE('Interval=1YEAR')
+                            print*, 'Warning: Incorrect implementation of 1YEAR boundary'
+                            dt_boundary=365*24*60*60._dp
+                        CASE DEFAULT
+                            print*, 'ERROR: Have not implemented time boundaries with spacing ', interval
                             stop
-                        END IF
+                        END SELECT
 
                         ! Read size of data
-                        read(input_file_unit_no, "(A16, I8)") hec_bnd_type, bnd_data_length
-
-                        IF(hec_bnd_type.NE.'Flow Hydrograph=') THEN
-                            print*, 'ERROR: Have only implemented flow hydrograph boundaries at present'
-                            stop
-                        END IF
-
+                        !read(input_file_unit_no, "(A17, I8)") hec_bnd_type, bnd_data_length
+                        read(input_file_unit_no, "(A50)") temp_char
+                        myind=index(temp_char, '=')
+                        hec_bnd_type=temp_char(1:(myind))
+                        read(temp_char( (myind+1):(myind+8) ), *) bnd_data_length
+                    
                         ! Allocate data
                         this_boundary=>network%physical_boundaries(boundary_counter)
                         this_boundary%physical_boundaries_index=boundary_counter
@@ -566,30 +582,62 @@ module hecras_IO
                         ! Initialise last_search_index
                         this_boundary%Boundary_t_w_Q%last_search_index=1
 
-                        ! Set compute method
-                        this_boundary%compute_method='discharge'
-                        print*, this_boundary%Boundary_t_w_Q%varnames
+                        SELECT CASE(hec_bnd_type)
+                        CASE('Flow Hydrograph= ')
+                            ! Set compute method
+                            this_boundary%compute_method='discharge'
 
-                        ! Make up time / water surface
-                        DO j=1,bnd_data_length
-                            this_boundary%Boundary_t_w_Q%x_y(j,1) = 60._dp*(j-1)
-                            this_boundary%Boundary_t_w_Q%x_y(j,2) = 30._dp
-                        END DO
-                        
-                        ! Read discharge data into file
-                        DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
-                            read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
-                            lb = (j-1)*10 + 1
-                            ub = min(j*10, bnd_data_length)
-                            this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:(ub-lb+1)))
-                        END DO
+                            ! Make up time / water surface
+                            DO j=1,bnd_data_length
+                                this_boundary%Boundary_t_w_Q%x_y(j,1) = dt_boundary*(j-1)
+                                this_boundary%Boundary_t_w_Q%x_y(j,2) = 0._dp ! ARTIFICIAL
+                            END DO
 
-                        ! Now, read the 'Qmin variable', and enforce the minimum discharge
-                        read(input_file_unit_no, "(21X, A8)") temp_char_vec(1)
-                        Qmin=char_2_real(temp_char_vec(1))
-                        this_boundary%Boundary_t_w_Q%x_y(:,3) = merge(this_boundary%Boundary_t_w_Q%x_y(:,3), & 
+                            ! Read discharge data into file
+                            DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
+                                read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
+                                lb = (j-1)*10 + 1
+                                ub = min(j*10, bnd_data_length)
+                                IF(trim(river_name).EQ.'Tapayan_network') THEN
+                                    print*, temp_char_vec(1:(ub-lb+1)) 
+                                    print*, char_2_real(temp_char_vec(1:(ub-lb+1)))
+                                    print*, '..'
+                                END IF
+                                this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:(ub-lb+1)))
+                            END DO
+
+                            ! Now, read the 'Qmin variable', and enforce the minimum discharge, if it exists
+                            read(input_file_unit_no, "(21X, A8)") temp_char_vec(1:2)
+                            IF(temp_char_vec(1)=='Flow Hydrograph QMin=') THEN
+                                Qmin=char_2_real(temp_char_vec(2))
+                                this_boundary%Boundary_t_w_Q%x_y(:,3) = merge(this_boundary%Boundary_t_w_Q%x_y(:,3), & 
                                                                       Qmin, &
                                                                       this_boundary%Boundary_t_w_Q%x_y(:,3)> Qmin)
+                            END IF
+                        CASE('Stage Hydrograph=')
+                            ! Set compute method
+                            this_boundary%compute_method='stage'
+
+                            ! Make up time / water surface
+                            DO j=1,bnd_data_length
+                                this_boundary%Boundary_t_w_Q%x_y(j,1) = dt_boundary*(j-1)
+                                this_boundary%Boundary_t_w_Q%x_y(j,3) = 0._dp ! ARTIFICIAL
+                            END DO
+
+                            ! Read discharge data into file
+                            DO j=1, ceiling( bnd_data_length*1._dp/(10._dp)) 
+                                read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
+                                lb = (j-1)*10 + 1
+                                ub = min(j*10, bnd_data_length)
+                                this_boundary%Boundary_t_w_Q%x_y(lb:ub,2) = char_2_real(temp_char_vec(1:(ub-lb+1)))
+                            END DO
+
+                        CASE DEFAULT
+                            print*, 'ERROR: Have not implemented boundaries of type ', trim(hec_bnd_type)
+                        END SELECT
+                        !print*, this_boundary%Boundary_t_w_Q%varnames
+
+                        
                        
                         ! Now stick the boundary onto the reach 
                         ! Look at the first/last xsections and see if they match the station name
@@ -603,21 +651,21 @@ module hecras_IO
                             print*, 'Downstream boundary'
                             network%reach_data(i)%Downstream_boundary=> network%physical_boundaries(boundary_counter)
                         ELSE
-                            print*, 'ERROR -- didnt find the right station', bnd_station, station1, stationN
+                            print*, 'ERROR -- didnt find the right station ', bnd_station, station1, stationN
                             stop
                         END IF
                         
                         ! FIXME: Nangka specific HACK to set the downstream boundary condition
-                        print*, 'warning: setting the downstream boundary in a hacky way ...'
-                        boundary_counter=boundary_counter+1
-                        network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
-                        this_boundary=> network%physical_boundaries(boundary_counter)
-                        this_boundary%physical_boundaries_index=boundary_counter
-                        this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
-                        this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
-                        this_boundary%compute_method='stage'
+                        !print*, 'warning: setting the downstream boundary in a hacky way ...'
+                        !boundary_counter=boundary_counter+1
+                        !network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
+                        !this_boundary=> network%physical_boundaries(boundary_counter)
+                        !this_boundary%physical_boundaries_index=boundary_counter
+                        !this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
+                        !this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
+                        !this_boundary%compute_method='stage'
 
-                        network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
+                        !network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
                         ! END NANGKA SPECIFIC HACK
                       
                         !call this_boundary%delete() 

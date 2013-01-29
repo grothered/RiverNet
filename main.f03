@@ -15,9 +15,9 @@ PROGRAM main
     INTEGER(ip):: i, N_flow, N_time, M
     REAL(dp):: xx
 
-    xx=datetime_string_to_seconds('Date/Time=24SEP2009,00:00')
-    print*, xx
-    stop
+    !xx=datetime_string_to_seconds('Date/Time=24SEP2009,00:00')
+    !print*, xx
+    !stop
 
     ! Initiate the geometry by reading the data
     call read_hecras_file(input_geometry_file, network, print_output=.FALSE.)

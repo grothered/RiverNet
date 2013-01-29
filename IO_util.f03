@@ -158,7 +158,10 @@ MODULE IO_util
     FUNCTION datetime_string_to_seconds(datetime)
         ! Function to convert string of the form:
         ! Fixed Start Date/Time=24SEP2009,00:00
-        ! Into a 'seconds' number, relative to 1900 ?
+        ! Into a 'seconds' number, relative to base_year
+        ! Has been checked by comparison with R, e.g. for 
+        ! base_year=1600 and datetime='Date/Time=24SEP2009,00:00'
+        ! > julian(as.Date('2009-09-24'), as.Date('1600-01-01'))[1]*3600*24
         CHARACTER(*), INTENT(IN):: datetime
         REAL(dp):: datetime_string_to_seconds
 
@@ -167,7 +170,7 @@ MODULE IO_util
 
         INTEGER(ip):: i, mth
         CHARACTER(len=3):: all_months(12)
-        INTEGER(ip):: base_year=1900 ! Time from which date is measured
+        INTEGER(ip):: base_year=1600 ! Time from which date is measured
 
         all_months=(/ 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', &
                        'AUG', 'SEP', 'OCT', 'NOV', 'DEC' /)
