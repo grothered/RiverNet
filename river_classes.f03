@@ -1,6 +1,7 @@
 MODULE river_classes
 ! Classes for river type things
     USE global_defs
+    USE IO_util, ONLY: datetime_string_to_seconds
     USE one_d_relation_class
     USE xsect_classes
     USE reach_boundary_classes
@@ -61,17 +62,18 @@ MODULE river_classes
         ! River network, containing reaches and junctions, and ...
         INTEGER(ip):: num_reaches
         INTEGER(ip):: num_junctions
+        INTEGER(ip):: num_physical_boundaries
         TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:)
         !TYPE(JUNCTION_BOUNDARY), ALLOCATABLE:: reach_junctions(:)
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: physical_boundaries(:)
         TYPE(JUNCTION_BOUNDARY) :: reach_junctions(veclen)
         TYPE(PHYSICAL_BOUNDARY) :: physical_boundaries(veclen)
 
-        REAL(dp):: time=start_time ! Time (s) from arbitrary start time
+        REAL(dp):: time= missing_value 
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step
         REAL(dp):: CFL=cfl_1d_solver ! CFL number
    
-        INTEGER(ip):: output_file_unit, time_file_unit 
+        INTEGER(ip):: output_file_unit, time_file_unit
 
         contains
         PROCEDURE:: print_status => print_network_status
@@ -228,25 +230,35 @@ MODULE river_classes
     END SUBROUTINE allocate_1d_vars
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE set_initial_conditions(reach, depth_start, Q_start)
+    SUBROUTINE set_initial_conditions(network, depth_start, Q_start)
         ! Quick routine to set initial depth = depth_start (above min bed elevation),
         ! and initial_Q = Q_start
-        CLASS(reach_data_type), INTENT(INOUT):: reach
+        TYPE(network_data_type), INTENT(INOUT), TARGET:: network
         REAL(dp), INTENT(IN):: depth_start, Q_start
 
-        INTEGER(ip):: N, i
+        TYPE(reach_data_type), POINTER:: reach
+        INTEGER(ip):: N, i, r
         
-        N=size(reach%Stage)
-        DO i=1,N
-            ! Depth of 1m
-            reach%Stage(i)= minval(reach%xsects(i)%yz(:,2)) + depth_start
-            reach%Area(i) = reach%xsects(i)%stage_etc_curve%eval( &
-                                                  reach%Stage(i), 'stage', 'area')
-            reach%Width(i) = reach%xsects(i)%stage_etc_curve%eval( &
-                                                  reach%Stage(i), 'stage', 'width')
-            reach%Discharge(i) = Q_start
-            reach%Drag_1D(i) = reach%xsects(i)%stage_etc_curve%eval( &
-                                                  reach%Stage(i), 'stage', 'drag_1D')
+        ! Initialise time to 'start_time' + 'model_zero_datetime'
+        network%time = start_time + datetime_string_to_seconds(model_zero_datetime) ! Time (s) from arbitrary start time
+
+        ! Loop over every reach and initialise depth/discharge
+        DO r=1,size(network%reach_data)
+            reach=> network%reach_data(r) 
+            N=size(reach%Stage)
+            DO i=1,N
+                ! Set depth
+                reach%Stage(i)= minval(reach%xsects(i)%yz(:,2)) + depth_start
+                reach%Area(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                      reach%Stage(i), 'stage', 'area')
+                reach%Width(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                      reach%Stage(i), 'stage', 'width')
+                ! Set discharge
+                reach%Discharge(i) = Q_start
+                reach%Drag_1D(i) = reach%xsects(i)%stage_etc_curve%eval( &
+                                                      reach%Stage(i), 'stage', 'drag_1D')
+            END DO
+            reach=> NULL()
         END DO
 
     END SUBROUTINE set_initial_conditions

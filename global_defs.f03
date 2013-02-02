@@ -44,6 +44,8 @@ MODULE global_defs
    
     ! Start time for simulation 
     real(dp), PARAMETER, PUBLIC:: start_time=0._dp
+    ! Date/Time at which t=0 in the model
+    character(len=charlen), PARAMETER, PUBLIC:: model_zero_datetime='Date/Time=25SEP2009,00:00'
    
     ! IO 
     integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep

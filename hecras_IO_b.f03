@@ -417,7 +417,7 @@ module hecras_IO
             !call jb%delete()
             jb=> NULL()
         END DO
-        jb=> NULL()
+        !jb=> NULL()
 
         !print*, 'Finished junction routine'
         ! Back to start of file
@@ -497,10 +497,10 @@ module hecras_IO
         ! Local vars       
         INTEGER(ip):: input_file_unit_no , i,j, io_test=0, bnd_data_length
         INTEGER(ip):: lb, ub, num_physical_bounds, boundary_counter=0, myind
-        REAL(dp):: Qmin, dt_boundary
+        REAL(dp):: Qmin, dt_boundary, local_starttime
         CHARACTER(len=16):: bnd_river_name, bnd_reach_name, bnd_station
         CHARACTER(len=charlen):: interval
-        CHARACTER(len=charlen):: hec_bnd_type
+        CHARACTER(len=charlen):: hec_bnd_type, datetimestring
         CHARACTER(len=charlen):: river_name, reach_name, station1,stationN
         CHARACTER(len=charlen):: temp_char_vec(veclen), temp_char
         !TYPE(PHYSICAL_BOUNDARY), ALLOCATABLE:: this_boundary
@@ -511,8 +511,8 @@ module hecras_IO
         OPEN(newunit=input_file_unit_no, file=input_boundary_file)
 
         ! Make space for storing the physical boundaries
-        num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', '(A18)')
-        print*, num_physical_bounds
+        !num_physical_bounds=count_line_matches(input_file_unit_no, 'Boundary Location=', '(A18)')
+        !print*, num_physical_bounds
 
         !allocate(network%physical_boundaries(num_physical_bounds))
 
@@ -523,7 +523,9 @@ module hecras_IO
             CALL next_match(input_file_unit_no, 'Boundary Location=', io_test,'(A18)')
             matched_with_river=.FALSE.
             
-            IF(io_test==0) THEN
+            IF(io_test==0) THEN 
+                ! Not at the end of the file
+
                 BACKSPACE(input_file_unit_no)
                 ! read the names associated with this boundary
                 read(input_file_unit_no,"(18X, A16, 1X, A16, 1X, A8)"), bnd_river_name, bnd_reach_name, bnd_station
@@ -534,11 +536,22 @@ module hecras_IO
                     reach_name=network%reach_data(i)%names(2)
 
                     IF( (trim(river_name)==trim(bnd_river_name)).AND.(trim(reach_name)==trim(bnd_reach_name))) THEN
+                        
+                        ! Check the first/last xsections and see if they match the station name
+                        ! Otherwise, we are looking at an internal boundary 
+                        ! and we need to skip it
+                        read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
+                        read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
+                        IF((bnd_station.NE.station1).AND.(bnd_station.NE.stationN)) THEN
+                            print*, 'Skipping boundary at ', trim(river_name),' ', trim(reach_name)
+                            print*, ' at station ', bnd_station
+                            print*, ' which is not at the start/end of the reach'
+                            CYCLE
+                        END IF
+
                         matched_with_river=.TRUE.
                         print*, 'Found boundary at ', trim(river_name),' ', trim(reach_name)
                         boundary_counter=boundary_counter+1
-
-                        ! Put the file data into the boundary
 
                         ! Read data time increment
                         read(input_file_unit_no, *) interval
@@ -562,8 +575,7 @@ module hecras_IO
                             stop
                         END SELECT
 
-                        ! Read size of data
-                        !read(input_file_unit_no, "(A17, I8)") hec_bnd_type, bnd_data_length
+                        ! Read type of boundary (hec_bnd_type) and size of boundary data (bnd_data_length)
                         read(input_file_unit_no, "(A50)") temp_char
                         myind=index(temp_char, '=')
                         hec_bnd_type=temp_char(1:(myind))
@@ -579,7 +591,7 @@ module hecras_IO
                         this_boundary%Boundary_t_w_Q%varnames(1)='time'
                         this_boundary%Boundary_t_w_Q%varnames(2)='stage'
                         this_boundary%Boundary_t_w_Q%varnames(3)='discharge'
-                        ! Initialise last_search_index
+                        ! Initialise last_search_index 
                         this_boundary%Boundary_t_w_Q%last_search_index=1
 
                         SELECT CASE(hec_bnd_type)
@@ -590,7 +602,7 @@ module hecras_IO
                             ! Make up time / water surface
                             DO j=1,bnd_data_length
                                 this_boundary%Boundary_t_w_Q%x_y(j,1) = dt_boundary*(j-1)
-                                this_boundary%Boundary_t_w_Q%x_y(j,2) = 0._dp ! ARTIFICIAL
+                                this_boundary%Boundary_t_w_Q%x_y(j,2) = missing_value ! ARTIFICIAL
                             END DO
 
                             ! Read discharge data into file
@@ -614,6 +626,7 @@ module hecras_IO
                                                                       Qmin, &
                                                                       this_boundary%Boundary_t_w_Q%x_y(:,3)> Qmin)
                             END IF
+
                         CASE('Stage Hydrograph=')
                             ! Set compute method
                             this_boundary%compute_method='stage'
@@ -621,7 +634,7 @@ module hecras_IO
                             ! Make up time / water surface
                             DO j=1,bnd_data_length
                                 this_boundary%Boundary_t_w_Q%x_y(j,1) = dt_boundary*(j-1)
-                                this_boundary%Boundary_t_w_Q%x_y(j,3) = 0._dp ! ARTIFICIAL
+                                this_boundary%Boundary_t_w_Q%x_y(j,3) = missing_value ! ARTIFICIAL
                             END DO
 
                             ! Read discharge data into file
@@ -634,16 +647,33 @@ module hecras_IO
 
                         CASE DEFAULT
                             print*, 'ERROR: Have not implemented boundaries of type ', trim(hec_bnd_type)
+                            stop
                         END SELECT
-                        !print*, this_boundary%Boundary_t_w_Q%varnames
 
+                        ! Now, fix up the start-time in the boundary. 
+                        CALL next_match(input_file_unit_no, 'Use Fixed Start Time=', io_test,'(A21)')
+                        IF(io_test.NE.0) THEN
+                            print*, 'ERORR: Missing "Use Fixed Start Time=" string in boundary data for'
+                            print*, trim(river_name), ' ', trim(reach_name) 
+                            stop
+                        ELSE
+                            ! Check if we use a boundary specific starting date/time
+                            BACKSPACE(input_file_unit_no)
+                            read(input_file_unit_no, "(A21,A6)") temp_char_vec(1), temp_char_vec(2)
+                            IF(trim(temp_char_vec(2)).EQ.'True') THEN
+                                ! Read the date_time_string
+                                read(input_file_unit_no, '(A12, A25)') temp_char_vec(1), datetimestring
+                                local_starttime=datetime_string_to_seconds(datetimestring)
+                            ELSE
+                                ! Use globally defined zero time as starttime
+                                local_starttime=datetime_string_to_seconds(model_zero_datetime)
+                            END IF
+                            ! Correct the time
+                            this_boundary%Boundary_t_w_Q%x_y(:,1) = local_starttime + & 
+                                                    this_boundary%Boundary_t_w_Q%x_y(:,1)
+                        END IF
                         
-                       
                         ! Now stick the boundary onto the reach 
-                        ! Look at the first/last xsections and see if they match the station name
-                        read(network%reach_data(i)%xsects(1)%myname, "(27X, A8)" ) station1
-                        read(network%reach_data(i)%xsects(network%reach_data(i)%xsect_count )%myname, "(27X, A8)"), stationN
-
                         IF(bnd_station==station1) THEN
                             print*, 'Upstream boundary'
                             network%reach_data(i)%Upstream_boundary=> network%physical_boundaries(boundary_counter)
@@ -658,20 +688,6 @@ module hecras_IO
                             END IF
                         END IF
                         
-                        ! FIXME: Nangka specific HACK to set the downstream boundary condition
-                        !print*, 'warning: setting the downstream boundary in a hacky way ...'
-                        !boundary_counter=boundary_counter+1
-                        !network%physical_boundaries(boundary_counter)=network%physical_boundaries(boundary_counter-1)
-                        !this_boundary=> network%physical_boundaries(boundary_counter)
-                        !this_boundary%physical_boundaries_index=boundary_counter
-                        !this_boundary%Boundary_t_w_Q%x_y(:,2) = 18._dp
-                        !this_boundary%Boundary_t_w_Q%x_y(:,3) = 0._dp
-                        !this_boundary%compute_method='stage'
-
-                        !network%reach_data(i)%Downstream_boundary=>network%physical_boundaries(boundary_counter)
-                        ! END NANGKA SPECIFIC HACK
-                      
-                        !call this_boundary%delete() 
                         this_boundary=>NULL()
                     END IF
                 END DO
@@ -684,7 +700,9 @@ module hecras_IO
 
             END IF
         END DO
-        this_boundary=> NULL()
+
+        network%num_physical_boundaries=boundary_counter
+        !this_boundary=> NULL()
 
     END SUBROUTINE
 
