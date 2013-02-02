@@ -29,18 +29,18 @@ PROGRAM main
 
     ! Set the boundary conditions
     call read_hecras_boundary_conditions(input_boundary_file, network) 
-    !stop
+
     ! Set the initial conditions
     call set_initial_conditions(network, 1.0e-04_dp, 0._dp)
     print*, 'Have set initial conditions'
 
+    ! Note: THIS COULD BE A GOOD TEST TO INCLUDE GENERALLY
     print*, 'Time = ', network%time
     print*, 'Boundary condition starttimes are: '
     DO i=1, network%num_physical_boundaries
         xx=network%physical_boundaries(i)%Boundary_t_w_Q%x_y(1,1)
         print*, xx, xx.LE.network%time
     END DO
-    stop
     !print*, 'reversing reach data for sport'
     !call reverse_reach_order(network%reach_data(1), network)
 
