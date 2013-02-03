@@ -48,6 +48,6 @@ MODULE global_defs
     character(len=charlen), PARAMETER, PUBLIC:: model_zero_datetime='Date/Time=25SEP2009,00:00'
    
     ! IO 
-    integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep
+    integer, parameter, public:: writfreq=1 ! Write every writfreq'th timestep
 
 END MODULE global_defs

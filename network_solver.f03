@@ -233,7 +233,7 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
         REAL(dp):: Qtmp(reach_data%xsect_count)
-        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.TRUE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count

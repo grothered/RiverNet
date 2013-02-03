@@ -39,8 +39,15 @@ PROGRAM main
     print*, 'Boundary condition starttimes are: '
     DO i=1, network%num_physical_boundaries
         xx=network%physical_boundaries(i)%Boundary_t_w_Q%x_y(1,1)
-        print*, xx, xx.LE.network%time
+        print*, i, xx, xx.LE.network%time, network%physical_boundaries(i)%Boundary_t_w_Q%last_search_index, &
+                network%physical_boundaries(i)%physical_boundaries_index
     END DO
+    DO i=1,network%num_reaches
+        call network%reach_data(i)%Upstream_boundary%print()
+        call network%reach_data(i)%Downstream_boundary%print()
+    END DO
+    stop
+    !stop
     !print*, 'reversing reach data for sport'
     !call reverse_reach_order(network%reach_data(1), network)
 
