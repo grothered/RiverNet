@@ -390,6 +390,10 @@ MODULE river_classes
                     r = network%reach_junctions(i)%reach_index(j)
                     print*, '-- r:', r
                     print*, network%num_reaches
+                    print*, size(network%reach_data)
+                    print*, size(network%reach_data(r)%xsects)
+                    print*, trim(network%reach_data(r)%names(1)), trim(network%reach_data(r)%names(2))
+                    print*, network%reach_data(r)%xsects(1)%stage_etc_curve%last_search_index
                     ! Find the min_stage on each stage_etc_curve
                     IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)
