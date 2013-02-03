@@ -255,7 +255,10 @@ MODULE network_solver
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! PREDICTOR STEP
         !
-        IF(location_flags) print*, 'Start Pred'
+        IF(location_flags) THEN
+            print*, ' # Reach --> ', trim(reach_data%names(1)),' ', trim(reach_data%names(2))
+            print*, 'Start Pred'
+        END IF
 
         ! Compute Area predictor Apred_i = Alast_i + dT/dX_v*[Qlast_(i+1/2) - Qlast_(i-1/2)],
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
@@ -576,5 +579,58 @@ MODULE network_solver
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
 
+        IF(location_flags) print*, 'done'
+
     END SUBROUTINE one_mccormack_step
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE update_junction_values(network)
+        ! Update the volume / momentum in each junction
+        TYPE(network_data_type), INTENT(INOUT):: network
+        
+        INTEGER(ip):: i, j, r, N, M
+        REAL(dp):: Q_update, Qx_update, Qy_update, V
+
+        IF(network%num_junctions>0) THEN
+            ! Loop over every junction
+            DO i=1,network%num_junctions
+                N=size(network%reach_junctions(i)%reach_ends)
+
+                ! Re-set junction momentum to zero
+                network%reach_junctions(i)%Discharge_x=0._dp
+                network%reach_junctions(i)%Discharge_y=0._dp
+
+                ! Loop over every reach connecting to the junction
+                DO j=1,N
+                    ! Identify the associated reach index
+                    r=network%reach_junctions(i)%reach_index(j)
+
+                    ! Update the volume of water in the junction
+                    IF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
+                        M = network%reach_data(r)%xsect_count
+                        Q_update=-network%reach_data(r)%Discharge_con(M)
+                        Qx_update= - Q_update
+                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
+                        Q_update=network%reach_data(j)%Discharge_con(1)
+                        Qx_update= Q_update
+                    ELSE
+                        print*, 'ERROR: reach end is neither Up or Dn'
+                        stop
+                    END IF
+                    network%reach_junctions(i)%Volume = network%reach_junctions(i)%Volume + network%dT*Q_update
+
+                    ! Update the momenta
+                    ! FIXME -- use a crude average at present
+                    network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
+                    network%reach_junctions(i)%Discharge_y=0._dp
+                END DO
+
+                ! Update the stage
+                V = network%reach_junctions(i)%Volume
+                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'Volume', 'Stage')
+            END DO
+        END IF
+
+    END SUBROUTINE update_junction_values
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 END MODULE network_solver

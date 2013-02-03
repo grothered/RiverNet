@@ -378,7 +378,7 @@ module hecras_IO
                     IF( (jb%reach_names(i,1) == network%reach_data(j)%names(1)).AND. &
                         (jb%reach_names(i,2) == network%reach_data(j)%names(2)) ) THEN
                         jb%reach_index(i) = j
-                        print*, 'MATCHED junction ', i, ' with reach ', j
+                        print*, 'MATCHED junction ', junction_count, ' with reach ', j
                     END IF
                 END DO
             END DO
@@ -390,7 +390,7 @@ module hecras_IO
                 read(temp_char, *) temp_reals(1:2)
                 jb%distances(i) = temp_reals(1)
             END DO  
-                jb%distances(join_count)=0._dp
+            jb%distances(join_count)=0._dp
 
             ! Stick it into the reach_junctions
             !network%reach_junctions(junction_count)=jb
@@ -419,6 +419,8 @@ module hecras_IO
         END DO
         !jb=> NULL()
 
+        ! Finally, set the stage volume curves for all junctions
+        call init_junction_stage_volume_curves(network)
         !print*, 'Finished junction routine'
         ! Back to start of file
         rewind(input_file_unit_no) 
@@ -583,6 +585,8 @@ module hecras_IO
                     
                         ! Allocate data
                         this_boundary=>network%physical_boundaries(boundary_counter)
+                        this_boundary%boundary_type='physical_boundary'
+                        this_boundary%input_file='hecras_file'
                         this_boundary%physical_boundaries_index=boundary_counter
                         ALLOCATE(this_boundary%Boundary_t_w_Q%varnames(3))
                         ALLOCATE(this_boundary%Boundary_t_w_Q%x_y(bnd_data_length, 3))
@@ -610,11 +614,6 @@ module hecras_IO
                                 read(input_file_unit_no, "(10A8)") temp_char_vec(1:10)
                                 lb = (j-1)*10 + 1
                                 ub = min(j*10, bnd_data_length)
-                                IF(trim(river_name).EQ.'Tapayan_network') THEN
-                                    print*, temp_char_vec(1:(ub-lb+1)) 
-                                    print*, char_2_real(temp_char_vec(1:(ub-lb+1)))
-                                    print*, '..'
-                                END IF
                                 this_boundary%Boundary_t_w_Q%x_y(lb:ub,3) = char_2_real(temp_char_vec(1:(ub-lb+1)))
                             END DO
 
@@ -626,6 +625,10 @@ module hecras_IO
                                                                       Qmin, &
                                                                       this_boundary%Boundary_t_w_Q%x_y(:,3)> Qmin)
                             END IF
+                            !print*, ' ... PRINTING BOUNDARY DATA ...'
+                            !DO j=1, bnd_data_length
+                            !    print*,'---> ', j, this_boundary%Boundary_t_w_Q%x_y(j,:)
+                            !END DO
 
                         CASE('Stage Hydrograph=')
                             ! Set compute method

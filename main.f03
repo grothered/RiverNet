@@ -15,57 +15,67 @@ PROGRAM main
     INTEGER(ip):: i, N_flow, N_time, M
     REAL(dp):: xx
 
-    !xx=datetime_string_to_seconds('Date/Time=24SEP2009,00:00')
-    !print*, xx
-    !stop
 
     ! Initiate the geometry by reading the data
+    print*, 'Reading geometry ...'
     call read_hecras_file(input_geometry_file, network, print_output=.FALSE.)
 
-    !DO i=1,network%num_junctions
-    !   call network%reach_junctions(i)%print()
-    !END DO    
-    !stop
-
     ! Set the boundary conditions
+    print*, 'Reading boundary conditions ...'
     call read_hecras_boundary_conditions(input_boundary_file, network) 
 
-    ! Set the initial conditions
-    call set_initial_conditions(network, 1.0e-04_dp, 0._dp)
-    print*, 'Have set initial conditions'
-
-    ! Note: THIS COULD BE A GOOD TEST TO INCLUDE GENERALLY
-    print*, 'Time = ', network%time
-    print*, 'Boundary condition starttimes are: '
-    DO i=1, network%num_physical_boundaries
-        xx=network%physical_boundaries(i)%Boundary_t_w_Q%x_y(1,1)
-        print*, i, xx, xx.LE.network%time, network%physical_boundaries(i)%Boundary_t_w_Q%last_search_index, &
-                network%physical_boundaries(i)%physical_boundaries_index
-    END DO
     DO i=1,network%num_reaches
-        call network%reach_data(i)%Upstream_boundary%print()
-        call network%reach_data(i)%Downstream_boundary%print()
+        IF(trim(network%reach_data(i)%names(1)) == 'Laguna_fake') THEN
+            print*, trim(network%reach_data(i)%names(1)), trim(network%reach_data(i)%names(2))
+            call network%reach_data(i)%Upstream_boundary%print()
+            print*, ' ---'
+            call network%reach_data(i)%Downstream_boundary%print()
+        END IF
     END DO
-    stop
-    !stop
-    !print*, 'reversing reach data for sport'
-    !call reverse_reach_order(network%reach_data(1), network)
+
+    ! Set the initial conditions
+    print*, 'Seting initial conditions ...'
+    call set_initial_conditions(network, 1.0e-04_dp, 0._dp)
+
 
     ! Open output files
     call network%create_outfiles()
 
     ! Run the simulation
+    print*, 'Running the simulation...'
     DO i=1,max_its
         call network%print_status(i)
         call network%write_data(i)
         
         call evolve_hydraulics(network)
-        !call network%reach_data(1)%reverse_reach_order()
-        !print*, 'reversing reach data for sport'
-        !call reverse_reach_order(network%reach_data(1), network)
     END DO
 
     ! Close the output files
     call network%close_outfiles()
 
 END PROGRAM
+
+!! CHECK IF THE BOUNDARY CONDITION STARTTIMES FIT WITH THE MODEL STARTTIME
+!! THIS COULD BE A GOOD TEST TO INCLUDE GENERALLY
+!print*, 'Time = ', network%time
+!print*, 'Boundary condition starttimes are: '
+!DO i=1, network%num_physical_boundaries
+!    xx=network%physical_boundaries(i)%Boundary_t_w_Q%x_y(1,1)
+!    print*, i, xx, xx.LE.network%time, network%physical_boundaries(i)%Boundary_t_w_Q%last_search_index, &
+!            network%physical_boundaries(i)%physical_boundaries_index
+!END DO
+!print*, 'Finished boundary condition starttimes'
+
+!! LOOK AT THE BOUNDARIES
+!DO i=1,network%num_reaches
+!    call network%reach_data(i)%Upstream_boundary%print()
+!    call network%reach_data(i)%Downstream_boundary%print()
+!END DO
+
+!xx=datetime_string_to_seconds('Date/Time=24SEP2009,00:00')
+!print*, xx
+!stop
+
+!stop
+!print*, 'reversing reach data for sport'
+!call reverse_reach_order(network%reach_data(1), network)

@@ -78,6 +78,8 @@ MODULE reach_boundary_classes
                 print*, trim(generic_boundary%boundary_type),' ', &
                                             trim(generic_boundary%input_file)
                 print*, trim(generic_boundary%compute_method)
+                call generic_boundary%Boundary_t_w_Q%print()
+
             TYPE IS (JUNCTION_BOUNDARY)
                 print*, '###############'
                 print*, 
@@ -142,6 +144,6 @@ MODULE reach_boundary_classes
 
     END FUNCTION get_boundary_values
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 END MODULE reach_boundary_classes
 

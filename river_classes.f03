@@ -237,8 +237,11 @@ MODULE river_classes
         REAL(dp), INTENT(IN):: depth_start, Q_start
 
         TYPE(reach_data_type), POINTER:: reach
-        INTEGER(ip):: N, i, r
+        TYPE(junction_boundary), POINTER:: jb
         
+        INTEGER(ip):: N, i, r
+        REAL(dp):: js, jdx, jdy , reach_stage(1)
+
         ! Initialise time to 'start_time' + 'model_zero_datetime'
         network%time = start_time + datetime_string_to_seconds(model_zero_datetime) ! Time (s) from arbitrary start time
 
@@ -259,6 +262,35 @@ MODULE river_classes
                                                       reach%Stage(i), 'stage', 'drag_1D')
             END DO
             reach=> NULL()
+        END DO
+
+        DO r=1,network%num_junctions
+            jb=>network%reach_junctions(r)
+
+            js=-9.0e+30
+            jdx=0._dp
+            jdy=0._dp
+           
+            ! Set stage as max joining reach stage 
+            DO i=1, size(jb%reach_ends)
+                SELECT CASE(jb%reach_ends(i))
+                    CASE ('Up')
+                        reach_stage=network%reach_data( jb%reach_index(i))%Stage(1)
+                    CASE ('Dn')
+                        reach_stage=network%reach_data(jb%reach_index(i))%Stage(network%reach_data%xsect_count)
+                    CASE DEFAULT
+                        print*, 'ERROR in set_initial_conditions: jb%reach_ends has invalid value'
+                        stop
+                END SELECT
+
+                js = max(js, reach_stage(1))
+            END DO
+            
+            jb%Stage=js
+            jb%Discharge_x=jdx
+            jb%Discharge_y=jdy
+
+            jb%volume=jb%stage_volume_curve%eval( js, 'stage', 'volume')
         END DO
 
     END SUBROUTINE set_initial_conditions
@@ -356,7 +388,8 @@ MODULE river_classes
                 DO j=1,size(network%reach_junctions(i)%reach_ends)
 
                     r = network%reach_junctions(i)%reach_index(j)
-
+                    print*, '-- r:', r
+                    print*, network%num_reaches
                     ! Find the min_stage on each stage_etc_curve
                     IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)
@@ -393,55 +426,6 @@ MODULE river_classes
 
     END SUBROUTINE init_junction_stage_volume_curves
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE update_junction_values(network)
-        ! Update the volume / momentum in each junction
-        TYPE(network_data_type), INTENT(INOUT):: network
-        
-        INTEGER(ip):: i, j, r, N, M
-        REAL(dp):: Q_update, Qx_update, Qy_update, V
-
-        IF(network%num_junctions>0) THEN
-            ! Loop over every junction
-            DO i=1,network%num_junctions
-                N=size(network%reach_junctions(i)%reach_ends)
-
-                ! Re-set junction momentum to zero
-                network%reach_junctions(i)%Discharge_x=0._dp
-                network%reach_junctions(i)%Discharge_y=0._dp
-
-                ! Loop over every reach connecting to the junction
-                DO j=1,N
-                    ! Identify the associated reach index
-                    r=network%reach_junctions(i)%reach_index(j)
-
-                    ! Update the volume of water in the junction
-                    IF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
-                        M = network%reach_data(r)%xsect_count
-                        Q_update=-network%reach_data(r)%Discharge_con(M)
-                        Qx_update= - Q_update
-                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
-                        Q_update=network%reach_data(j)%Discharge_con(1)
-                        Qx_update= Q_update
-                    ELSE
-                        print*, 'ERROR: reach end is neither Up or Dn'
-                        stop
-                    END IF
-                    network%reach_junctions(i)%Volume = network%reach_junctions(i)%Volume + network%dT*Q_update
-
-                    ! Update the momenta
-                    ! FIXME -- use a crude average at present
-                    network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
-                    network%reach_junctions(i)%Discharge_y=0._dp
-                END DO
-
-                ! Update the stage
-                V = network%reach_junctions(i)%Volume
-                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'Volume', 'Stage')
-            END DO
-        END IF
-
-    END SUBROUTINE update_junction_values
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 END MODULE river_classes

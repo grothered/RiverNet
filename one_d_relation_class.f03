@@ -25,6 +25,7 @@ MODULE one_d_relation_class
 
         contains
         PROCEDURE:: eval=> eval_one_D_relation 
+        PROCEDURE:: print=> print_one_D_relation
     END TYPE    
 
     contains
@@ -139,5 +140,18 @@ MODULE one_d_relation_class
         deallocate(stage_etc_curve%x_y)
         deallocate(stage_etc_curve%varnames)
     END SUBROUTINE delete_one_D_relation
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE print_one_D_relation(stage_etc_curve)
+        CLASS(one_d_relation), INTENT(IN)::stage_etc_curve
 
+        INTEGER(ip):: i
+
+        print*, 'last_search_index = ', stage_etc_curve%last_search_index
+        print*, 'Index ', trim(stage_etc_curve%varnames(1)),' ', trim(stage_etc_curve%varnames(2)), ' ',& 
+                trim(stage_etc_curve%varnames(3))
+        DO i=1,size(stage_etc_curve%x_y(:,1))
+            print*, i, stage_etc_curve%x_y(i,1), stage_etc_curve%x_y(i,2), stage_etc_curve%x_y(i,3)
+        END DO
+
+    END SUBROUTINE print_one_D_relation
 END MODULE one_d_relation_class
