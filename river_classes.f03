@@ -199,7 +199,7 @@ MODULE river_classes
             IF(mod(counter-1,writfreq).eq.0) THEN
                 write(output_file_unit,*) network%reach_data(i)%Stage
                 write(output_file_unit,*) network%reach_data(i)%Area
-                write(output_file_unit,*) network%reach_data(i)%Area/network%reach_data(1)%Width
+                write(output_file_unit,*) network%reach_data(i)%Area/network%reach_data(i)%Width
                 write(output_file_unit,*) network%reach_data(i)%Discharge
                 write(output_file_unit,*) network%reach_data(i)%Discharge_con(1:M)
             END IF

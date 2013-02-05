@@ -23,8 +23,6 @@ PROGRAM main
     ! Open output files
     call network%create_outfiles()
 
-    stop
-
     ! Set the boundary conditions
     print*, 'Reading boundary conditions ...'
     call read_hecras_boundary_conditions(input_boundary_file, network) 
