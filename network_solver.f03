@@ -233,7 +233,7 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
         REAL(dp):: Qtmp(reach_data%xsect_count)
-        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.TRUE.
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -621,13 +621,15 @@ MODULE network_solver
 
                     ! Update the momenta
                     ! FIXME -- use a crude average at present
-                    network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
+                    network%reach_junctions(i)%Discharge_x=0._dp !network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
                     network%reach_junctions(i)%Discharge_y=0._dp
                 END DO
 
                 ! Update the stage
                 V = network%reach_junctions(i)%Volume
-                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'Volume', 'Stage')
+                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
+
+                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage
             END DO
         END IF
 

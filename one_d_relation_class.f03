@@ -87,6 +87,8 @@ MODULE one_d_relation_class
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is < min(values of this predictor) on this cross-section"
             print*, predictor, ' ', S_A(1,2), ' ', predictor_varname,' ', output_varname
+            print*, '-----------------------------------------'
+            call stage_etc_curve%print()
             stop
         END IF
 
@@ -95,6 +97,8 @@ MODULE one_d_relation_class
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is > max(values of this predictor) on this cross-section"
             print*, predictor, ' ',  predictor_varname, ' ', output_varname
+            print*, '-----------------------------------------'
+            call stage_etc_curve%print()
             stop
         END IF
 
@@ -102,6 +106,8 @@ MODULE one_d_relation_class
             print*, "ERROR: Trying to interpolate from stage_etc_curve: Used a"
             print*, "predictor which is NaN"
             print*, predictor, ' ', predictor_varname, ' ', output_varname
+            print*, '-----------------------------------------'
+            call stage_etc_curve%print()
             stop
         END IF
         ! Main routine
@@ -147,10 +153,13 @@ MODULE one_d_relation_class
         INTEGER(ip):: i
 
         print*, 'last_search_index = ', stage_etc_curve%last_search_index
-        print*, 'Index ', trim(stage_etc_curve%varnames(1)),' ', trim(stage_etc_curve%varnames(2)), ' ',& 
-                trim(stage_etc_curve%varnames(3))
+        DO i=1,size(stage_etc_curve%varnames)
+            ! Fancy non-advancing print statement
+            write(*, "(a)", advance='no') trim(stage_etc_curve%varnames(i)),' '
+        END DO
+            print*, ' '
         DO i=1,size(stage_etc_curve%x_y(:,1))
-            print*, i, stage_etc_curve%x_y(i,1), stage_etc_curve%x_y(i,2), stage_etc_curve%x_y(i,3)
+            print*, i, stage_etc_curve%x_y(i,:)
         END DO
 
     END SUBROUTINE print_one_D_relation

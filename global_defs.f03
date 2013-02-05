@@ -49,5 +49,5 @@ MODULE global_defs
    
     ! IO 
     integer, parameter, public:: writfreq=1 ! Write every writfreq'th timestep
-
+    character(len=charlen), PARAMETER, PUBLIC:: output_folder='outputs'
 END MODULE global_defs

@@ -454,9 +454,6 @@ module hecras_IO
         ! Read the data into reach_data
         call read_reaches(input_file_unit_no, network%reach_data, network%num_reaches) !-- this operates on the file
 
-        ! Read the junction data into the network
-        call read_junctions(input_file_unit_no, network)
-        CLOSE(input_file_unit_no)
 
         ! Set downstream distances in reach_data, and initiate the stage-area curves
         DO i=1,network%num_reaches
@@ -466,6 +463,10 @@ module hecras_IO
                 call network%reach_data(i)%xsects(j)%init_stage_etc_curve()
             END DO
         END DO
+        
+        ! Read the junction data into the network
+        call read_junctions(input_file_unit_no, network)
+        CLOSE(input_file_unit_no)
 
 
         ! ALLOCATE 1D variables

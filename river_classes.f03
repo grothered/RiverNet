@@ -17,6 +17,8 @@ MODULE river_classes
         CHARACTER(len=charlen):: names(2) ! Hold an array of names associated with the reach. Hecras has 2
         
         REAL(dp), ALLOCATABLE:: coordinates(:,:) ! Centreline coordinates
+
+        INTEGER(ip):: output_file_unit_no
         
         ! Boundary information
         !CLASS(REACH_BOUNDARY), ALLOCATABLE:: Downstream_boundary, Upstream_boundary
@@ -73,7 +75,7 @@ MODULE river_classes
         REAL(dp):: dT=maximum_allowed_timestep ! Hydrodynamic time-step
         REAL(dp):: CFL=cfl_1d_solver ! CFL number
    
-        INTEGER(ip):: output_file_unit, time_file_unit
+        INTEGER(ip):: time_file_unit
 
         contains
         PROCEDURE:: print_status => print_network_status
@@ -146,17 +148,39 @@ MODULE river_classes
     SUBROUTINE create_network_outfiles(network)
         ! Open files for writing output
         CLASS(network_data_type), INTENT(INOUT):: network
+        
+        CHARACTER(len=charlen):: mkdir_command, t1, t2, t3, t4, output_f_1
+        INTEGER:: i
 
-        open(newunit=network%output_file_unit, file='output.txt')
-        open(newunit=network%time_file_unit, file='time.txt')
+        ! Create output directory
+        call date_and_time(t1, t2, t3)
+        output_f_1 = trim(output_folder) // '_'//trim(t1) // trim(t2) //'_' // trim(t3) 
+        mkdir_command='mkdir -p ' // trim(output_f_1)
+        call system(mkdir_command)
+
+        DO i=1,network%num_reaches
+            ! Name = reach_name(1)[1:4] + reach_name(2)[1:4] + a number for uniqueness
+            t3=trim(network%reach_data(i)%names(1))
+            t4=trim(network%reach_data(i)%names(2))
+            write(t2, '(A4,A1,A4, I4, A4)') t3(1:4),'_',t4(1:4), i+1000, '.txt'
+            t1=trim(output_f_1) // '/' // t2 
+            open(newunit=network%reach_data(i)%output_file_unit_no, file=t1)
+        END DO
+        
+        ! Write time file
+        t1=trim(output_f_1) // '/' // 'time.txt'
+        open(newunit=network%time_file_unit, file=t1)
     END SUBROUTINE create_network_outfiles
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE close_network_outfiles(network)
         ! Close files for writing output
         CLASS(network_data_type), INTENT(IN):: network
-
-        close(network%output_file_unit)
+        INTEGER::i
+        
+        DO i=1,network%num_reaches
+            close(network%reach_data(i)%output_file_unit_no)
+        END DO
         close(network%time_file_unit)
     END SUBROUTINE close_network_outfiles
 
@@ -166,20 +190,27 @@ MODULE river_classes
         CLASS(network_data_type), INTENT(IN):: network
         INTEGER(ip), INTENT(IN):: counter
 
-        INTEGER(ip):: output_file_unit, time_file_unit, M
+        INTEGER(ip):: output_file_unit, time_file_unit, M, i
 
-        output_file_unit=network%output_file_unit
+        DO i=1,network%num_reaches
+            output_file_unit=network%reach_data(i)%output_file_unit_no
+            M=network%reach_data(i)%xsect_count
+
+            IF(mod(counter-1,writfreq).eq.0) THEN
+                write(output_file_unit,*) network%reach_data(i)%Stage
+                write(output_file_unit,*) network%reach_data(i)%Area
+                write(output_file_unit,*) network%reach_data(i)%Area/network%reach_data(1)%Width
+                write(output_file_unit,*) network%reach_data(i)%Discharge
+                write(output_file_unit,*) network%reach_data(i)%Discharge_con(1:M)
+            END IF
+        END DO
+
+        ! Write time
         time_file_unit=network%time_file_unit
-        M=network%reach_data(1)%xsect_count
-
         IF(mod(counter-1,writfreq).eq.0) THEN
-            write(output_file_unit,*) network%reach_data(1)%Stage
-            write(output_file_unit,*) network%reach_data(1)%Area
-            write(output_file_unit,*) network%reach_data(1)%Area/network%reach_data(1)%Width
-            write(output_file_unit,*) network%reach_data(1)%Discharge
-            write(output_file_unit,*) network%reach_data(1)%Discharge_con(1:M)
             write(time_file_unit,*) network%time
         END IF
+
     END SUBROUTINE write_network_data
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -239,7 +270,7 @@ MODULE river_classes
         TYPE(reach_data_type), POINTER:: reach
         TYPE(junction_boundary), POINTER:: jb
         
-        INTEGER(ip):: N, i, r
+        INTEGER(ip):: N, i, r, l
         REAL(dp):: js, jdx, jdy , reach_stage(1)
 
         ! Initialise time to 'start_time' + 'model_zero_datetime'
@@ -264,10 +295,11 @@ MODULE river_classes
             reach=> NULL()
         END DO
 
+        ! Loop over every junction and initialise depth/discharge/volume
         DO r=1,network%num_junctions
             jb=>network%reach_junctions(r)
 
-            js=-9.0e+30
+            js=-9.0e+30_dp
             jdx=0._dp
             jdy=0._dp
            
@@ -277,7 +309,8 @@ MODULE river_classes
                     CASE ('Up')
                         reach_stage=network%reach_data( jb%reach_index(i))%Stage(1)
                     CASE ('Dn')
-                        reach_stage=network%reach_data(jb%reach_index(i))%Stage(network%reach_data%xsect_count)
+                        l=network%reach_data(jb%reach_index(i))%xsect_count ! Number of x-sections
+                        reach_stage=network%reach_data(jb%reach_index(i))%Stage(l)
                     CASE DEFAULT
                         print*, 'ERROR in set_initial_conditions: jb%reach_ends has invalid value'
                         stop
@@ -380,6 +413,7 @@ MODULE river_classes
                 ALLOCATE(network%reach_junctions(i)%Stage_volume_curve%varnames(2))
                 network%reach_junctions(i)%Stage_volume_curve%varnames(1) = 'stage'
                 network%reach_junctions(i)%Stage_volume_curve%varnames(2) = 'volume'
+                network%reach_junctions(i)%Stage_volume_curve%last_search_index=1
 
                 ! FIXME: Crude method
                 ! volume  = (chosen xsect_area)*min_junction_length
@@ -388,12 +422,12 @@ MODULE river_classes
                 DO j=1,size(network%reach_junctions(i)%reach_ends)
 
                     r = network%reach_junctions(i)%reach_index(j)
-                    print*, '-- r:', r
-                    print*, network%num_reaches
-                    print*, size(network%reach_data)
-                    print*, size(network%reach_data(r)%xsects)
-                    print*, trim(network%reach_data(r)%names(1)), trim(network%reach_data(r)%names(2))
-                    print*, network%reach_data(r)%xsects(1)%stage_etc_curve%last_search_index
+                    !print*, '-- r:', r
+                    !print*, network%num_reaches
+                    !print*, size(network%reach_data)
+                    !print*, size(network%reach_data(r)%xsects)
+                    !print*, trim(network%reach_data(r)%names(1)), trim(network%reach_data(r)%names(2))
+                    !print*, network%reach_data(r)%xsects(1)%stage_etc_curve%last_search_index
                     ! Find the min_stage on each stage_etc_curve
                     IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)

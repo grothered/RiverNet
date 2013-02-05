@@ -19,17 +19,22 @@ PROGRAM main
     ! Initiate the geometry by reading the data
     print*, 'Reading geometry ...'
     call read_hecras_file(input_geometry_file, network, print_output=.FALSE.)
+    
+    ! Open output files
+    call network%create_outfiles()
+
+    stop
 
     ! Set the boundary conditions
     print*, 'Reading boundary conditions ...'
     call read_hecras_boundary_conditions(input_boundary_file, network) 
 
     DO i=1,network%num_reaches
-        IF(trim(network%reach_data(i)%names(1)) == 'Laguna_fake') THEN
-            print*, trim(network%reach_data(i)%names(1)), trim(network%reach_data(i)%names(2))
-            call network%reach_data(i)%Upstream_boundary%print()
-            print*, ' ---'
-            call network%reach_data(i)%Downstream_boundary%print()
+        IF(trim(network%reach_data(i)%names(1)) == 'Buli River') THEN
+            !print*, trim(network%reach_data(i)%names(1)), trim(network%reach_data(i)%names(2))
+            !call network%reach_data(i)%print()
+            !print*, ' ---'
+            !call network%reach_data(i)%Downstream_boundary%print()
         END IF
     END DO
 
@@ -37,9 +42,6 @@ PROGRAM main
     print*, 'Seting initial conditions ...'
     call set_initial_conditions(network, 1.0e-04_dp, 0._dp)
 
-
-    ! Open output files
-    call network%create_outfiles()
 
     ! Run the simulation
     print*, 'Running the simulation...'
