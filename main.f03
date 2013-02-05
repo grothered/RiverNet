@@ -28,11 +28,11 @@ PROGRAM main
     call read_hecras_boundary_conditions(input_boundary_file, network) 
 
     DO i=1,network%num_reaches
-        IF(trim(network%reach_data(i)%names(1)) == 'Buli River') THEN
+        IF(trim(network%reach_data(i)%names(2)) == 'Upper_marikina') THEN
             !print*, trim(network%reach_data(i)%names(1)), trim(network%reach_data(i)%names(2))
             !call network%reach_data(i)%print()
             !print*, ' ---'
-            !call network%reach_data(i)%Downstream_boundary%print()
+            !call network%reach_data(i)%Upstream_boundary%print()
         END IF
     END DO
 
@@ -46,7 +46,6 @@ PROGRAM main
     DO i=1,max_its
         call network%print_status(i)
         call network%write_data(i)
-        
         call evolve_hydraulics(network)
     END DO
 

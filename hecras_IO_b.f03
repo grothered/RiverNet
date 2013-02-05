@@ -122,9 +122,9 @@ module hecras_IO
                 BACKSPACE(input_file_unit_no)
                 read(input_file_unit_no, "(12X, A16, 1X, A16)", iostat=io_test) temp_chars(1:2)
 
-                PRINT*, "###############################"
+                !PRINT*, "###############################"
                 print*, 'REACH NAME:: ', trim(temp_chars(1)),' ', trim(temp_chars(2)) 
-                print*, 'REACH COUNT:: ', reach_count
+                !print*, 'REACH COUNT:: ', reach_count
               
                 ! Get 'reach_names' 
                 reach_data(reach_count)%names(1:2)=temp_chars(1:2)
@@ -378,7 +378,7 @@ module hecras_IO
                     IF( (jb%reach_names(i,1) == network%reach_data(j)%names(1)).AND. &
                         (jb%reach_names(i,2) == network%reach_data(j)%names(2)) ) THEN
                         jb%reach_index(i) = j
-                        print*, 'MATCHED junction ', junction_count, ' with reach ', j
+                        !print*, 'MATCHED junction ', junction_count, ' with reach ', j
                     END IF
                 END DO
             END DO
@@ -619,9 +619,11 @@ module hecras_IO
                             END DO
 
                             ! Now, read the 'Qmin variable', and enforce the minimum discharge, if it exists
-                            read(input_file_unit_no, "(21X, A8)") temp_char_vec(1:2)
-                            IF(temp_char_vec(1)=='Flow Hydrograph QMin=') THEN
+                            read(input_file_unit_no, "(A21, A8)") temp_char_vec(1:2)
+                            !print*, temp_char_vec(1)
+                            IF(trim(temp_char_vec(1))=='Flow Hydrograph QMin=') THEN
                                 Qmin=char_2_real(temp_char_vec(2))
+                                !print*, '-- Setting min discharge to ', Qmin
                                 this_boundary%Boundary_t_w_Q%x_y(:,3) = merge(this_boundary%Boundary_t_w_Q%x_y(:,3), & 
                                                                       Qmin, &
                                                                       this_boundary%Boundary_t_w_Q%x_y(:,3)> Qmin)

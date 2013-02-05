@@ -18,7 +18,23 @@ MODULE IO_util
     END FUNCTION
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    PURE ELEMENTAL FUNCTION strip_white_space(x)
+        ! Remote white space from character string
+        CHARACTER(len=*), INTENT(IN):: x
+        CHARACTER(len=charlen):: strip_white_space
 
+        INTEGER(ip):: i
+
+        strip_white_space=adjustl(trim(x))
+        DO i=1,len_trim(strip_white_space)
+            IF(strip_white_space(i:i).EQ.' ') THEN
+                strip_white_space(i:i)='_'
+            END IF
+        END DO
+
+    END FUNCTION
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     FUNCTION count_file_lines(input_file_unit_no)
         ! Count the number of lines in input_file_unit_no
         INTEGER(ip):: input_file_unit_no

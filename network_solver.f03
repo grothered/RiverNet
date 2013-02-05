@@ -609,9 +609,9 @@ MODULE network_solver
                     IF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
                         M = network%reach_data(r)%xsect_count
                         Q_update=-network%reach_data(r)%Discharge_con(M)
-                        Qx_update= - Q_update
+                        Qx_update= Q_update
                     ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
-                        Q_update=network%reach_data(j)%Discharge_con(1)
+                        Q_update=network%reach_data(r)%Discharge_con(1)
                         Qx_update= Q_update
                     ELSE
                         print*, 'ERROR: reach end is neither Up or Dn'
@@ -629,7 +629,10 @@ MODULE network_solver
                 V = network%reach_junctions(i)%Volume
                 network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
 
-                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage
+                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, & 
+                                        trim(network%reach_junctions(i)%reach_names(1,2)) , &
+                                        trim(network%reach_junctions(i)%reach_names(2,2)), &
+                                        trim(network%reach_junctions(i)%reach_names(3,2))
             END DO
         END IF
 

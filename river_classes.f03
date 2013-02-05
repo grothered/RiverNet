@@ -1,7 +1,7 @@
 MODULE river_classes
 ! Classes for river type things
     USE global_defs
-    USE IO_util, ONLY: datetime_string_to_seconds
+    USE IO_util, ONLY: datetime_string_to_seconds, strip_white_space
     USE one_d_relation_class
     USE xsect_classes
     USE reach_boundary_classes
@@ -154,15 +154,19 @@ MODULE river_classes
 
         ! Create output directory
         call date_and_time(t1, t2, t3)
-        output_f_1 = trim(output_folder) // '_'//trim(t1) // trim(t2) //'_' // trim(t3) 
+        output_f_1 = trim(output_folder) // '_'//trim(t1) // '_'// trim(t2)  
         mkdir_command='mkdir -p ' // trim(output_f_1)
         call system(mkdir_command)
 
         DO i=1,network%num_reaches
-            ! Name = reach_name(1)[1:4] + reach_name(2)[1:4] + a number for uniqueness
+            ! Name = reach_name(1) + reach_name(2) + a number for uniqueness
             t3=trim(network%reach_data(i)%names(1))
             t4=trim(network%reach_data(i)%names(2))
-            write(t2, '(A4,A1,A4, I4, A4)') t3(1:4),'_',t4(1:4), i+1000, '.txt'
+            write(t1,'(I4)') i+1000
+            write(t2, *) trim(t3),'_',trim(t4),'_', trim(t1), '.txt'
+            !print*, t2
+            t2=strip_white_space(trim(t2))
+            !print*, t2
             t1=trim(output_f_1) // '/' // t2 
             open(newunit=network%reach_data(i)%output_file_unit_no, file=t1)
         END DO
@@ -170,6 +174,7 @@ MODULE river_classes
         ! Write time file
         t1=trim(output_f_1) // '/' // 'time.txt'
         open(newunit=network%time_file_unit, file=t1)
+
     END SUBROUTINE create_network_outfiles
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
