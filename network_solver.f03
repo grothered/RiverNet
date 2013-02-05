@@ -629,10 +629,10 @@ MODULE network_solver
                 V = network%reach_junctions(i)%Volume
                 network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
 
-                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, ' ',& 
-                        trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' ', &
-                        trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
-                        trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))
+                !print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, ' ',& 
+                !        trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' ', &
+                !        trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
+                !        trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))
             END DO
         END IF
 
