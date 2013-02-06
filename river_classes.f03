@@ -311,9 +311,9 @@ MODULE river_classes
             ! Set stage as max joining reach stage 
             DO i=1, size(jb%reach_ends)
                 SELECT CASE(jb%reach_ends(i))
-                    CASE ('Up')
-                        reach_stage=network%reach_data( jb%reach_index(i))%Stage(1)
                     CASE ('Dn')
+                        reach_stage=network%reach_data( jb%reach_index(i))%Stage(1)
+                    CASE ('Up')
                         l=network%reach_data(jb%reach_index(i))%xsect_count ! Number of x-sections
                         reach_stage=network%reach_data(jb%reach_index(i))%Stage(l)
                     CASE DEFAULT
