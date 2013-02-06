@@ -580,8 +580,8 @@ MODULE network_solver
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
         ! Try to fix up conservation at the ends
-        reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
-        reach_data%Discharge_con(n+1) =-delX_v(1)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
+        !reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
+        !reach_data%Discharge_con(n+1) =-delX_v(1)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         IF(location_flags) print*, 'done'
 
@@ -593,7 +593,7 @@ MODULE network_solver
         TYPE(network_data_type), INTENT(INOUT):: network
         
         INTEGER(ip):: i, j, r, N, M
-        REAL(dp):: Q_update, Qx_update, Qy_update, V
+        REAL(dp):: Q_update, Qx_update, Qy_update, V, volume_old
 
         IF(network%num_junctions>0) THEN
             ! Loop over every junction
@@ -603,6 +603,8 @@ MODULE network_solver
                 ! Re-set junction momentum to zero
                 network%reach_junctions(i)%Discharge_x=0._dp
                 network%reach_junctions(i)%Discharge_y=0._dp
+
+                volume_old=network%reach_junctions(i)%Volume
 
                 ! Loop over every reach connecting to the junction
                 DO j=1,N
@@ -633,7 +635,7 @@ MODULE network_solver
                 V = network%reach_junctions(i)%Volume
                 network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
 
-                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage , &
+                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume - volume_old, &
                         trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
                 !        trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
                 !        trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))
