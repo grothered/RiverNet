@@ -434,9 +434,9 @@ MODULE river_classes
                     !print*, trim(network%reach_data(r)%names(1)), trim(network%reach_data(r)%names(2))
                     !print*, network%reach_data(r)%xsects(1)%stage_etc_curve%last_search_index
                     ! Find the min_stage on each stage_etc_curve
-                    IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
+                    IF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
                         temp_real(j) = network%reach_data(r)%xsects(1)%Stage_etc_curve%x_y(1,1)
-                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
+                    ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         M=network%reach_data(r)%xsect_count
                         temp_real(j) = network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(1,1)
                     END IF
@@ -450,19 +450,21 @@ MODULE river_classes
 
                 r = network%reach_junctions(i)%reach_index(chosen_xsect)
 
-                IF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Up') THEN
+                IF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Dn') THEN
                     M = 1
-                ELSEIF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Dn') THEN
+                ELSEIF(network%reach_junctions(i)%reach_ends(chosen_xsect) == 'Up') THEN
                     M=network%reach_data(r)%xsect_count
                 END IF
 
                 ! Allocate and assign the values
                 L = size(network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)) 
                 ALLOCATE(network%reach_junctions(i)%Stage_volume_curve%x_y(L,2))               
+                ! Stage = stage
                 network%reach_junctions(i)%Stage_volume_curve%x_y(:,1) = &
                              network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1) 
+                ! Volume = xsect_area*min_junction_length
                 network%reach_junctions(i)%Stage_volume_curve%x_y(:,2) = & 
-                             network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,1)*min_junction_length
+                             network%reach_data(r)%xsects(M)%Stage_etc_curve%x_y(:,2)*min_junction_length
             END DO
         END IF
 
