@@ -232,12 +232,13 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
-        REAL(dp):: Qtmp(reach_data%xsect_count)
+        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count)
         LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
         Discharge_old=reach_data%Discharge
+        Area_old=reach_data%Area
 
         ! Use channel delX as temporary delX here
 
@@ -578,6 +579,9 @@ MODULE network_solver
         reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),&
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
+        ! Try to fix up conservation at the ends
+        reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
+        reach_data%Discharge_con(n+1) =-delX_v(1)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         IF(location_flags) print*, 'done'
 
