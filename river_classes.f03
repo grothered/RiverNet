@@ -304,7 +304,7 @@ MODULE river_classes
         DO r=1,network%num_junctions
             jb=>network%reach_junctions(r)
 
-            js=-9.0e+30_dp
+            js=+9.0e+30_dp
             jdx=0._dp
             jdy=0._dp
            
@@ -321,7 +321,7 @@ MODULE river_classes
                         stop
                 END SELECT
 
-                js = max(js, reach_stage(1))
+                js = min(js, reach_stage(1))
             END DO
             
             jb%Stage=js
