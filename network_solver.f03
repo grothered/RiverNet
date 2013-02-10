@@ -380,7 +380,7 @@ MODULE network_solver
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
                 SELECT TYPE(x=>reach_data%Upstream_boundary)
                     TYPE IS(JUNCTION_BOUNDARY)
-                        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume-Discharge_old(1))/dT*0.333_dp )
+                        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume/dT-Discharge_old(1))*0.333_dp )
                 END SELECT
 
             END IF
@@ -394,7 +394,7 @@ MODULE network_solver
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
                 SELECT TYPE(x=>reach_data%Downstream_boundary)
                     TYPE IS(JUNCTION_BOUNDARY)
-                        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume-Discharge_old(n))/dT*0.333_dp )
+                        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume/dT-Discharge_old(n))*0.333_dp )
                 END SELECT
             END IF
 
@@ -648,7 +648,8 @@ MODULE network_solver
                 V = network%reach_junctions(i)%Volume
                 network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
 
-                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume - volume_old, &
+                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
+                        network%reach_junctions(i)%Volume - volume_old, &
                         trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
                 !        trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
                 !        trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))
