@@ -35,7 +35,8 @@ MODULE river_classes
         !
         REAL(dp), ALLOCATABLE:: Stage(:), Discharge(:), & 
                                 Area(:), Width(:), &
-                                Drag_1D(:), Discharge_con(:)
+                                Drag_1D(:), Discharge_con(:), &
+                                minbed(:)
         ! size(Volume) = size(Stage)-1
  
         ! Array of the downstream distances (DX) for the cross-sections -- e.g.
@@ -261,7 +262,7 @@ MODULE river_classes
         N=reach%xsect_count
 
         ALLOCATE(reach%Stage(N), reach%Discharge(N), reach%Area(N), reach%Width(N), reach%Drag_1D(N), &
-                 reach%Discharge_con(N+1))
+                 reach%Discharge_con(N+1), reach%minbed(N))
 
     END SUBROUTINE allocate_1d_vars
 
@@ -287,7 +288,8 @@ MODULE river_classes
             N=size(reach%Stage)
             DO i=1,N
                 ! Set depth
-                reach%Stage(i)= minval(reach%xsects(i)%yz(:,2)) + depth_start
+                reach%minbed(i)=minval(reach%xsects(i)%yz(:,2))
+                reach%Stage(i)= reach%minbed(i)+ depth_start
                 reach%Area(i) = reach%xsects(i)%stage_etc_curve%eval( &
                                                       reach%Stage(i), 'stage', 'area')
                 reach%Width(i) = reach%xsects(i)%stage_etc_curve%eval( &
