@@ -232,7 +232,7 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
-        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count)
+        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety
         LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
@@ -597,19 +597,20 @@ MODULE network_solver
         reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         ! If we have a junction boundary, make sure that the inflow is not > volume in junction
+        safety=0.5_dp
         SELECT TYPE(x=>reach_data%Downstream_boundary)
             TYPE IS(JUNCTION_BOUNDARY)
-                IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT) THEN
+                IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT*safety) THEN
                     ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT +small_positive_real
+                    reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT*safety +small_positive_real
                     reach_data%Area(n) = (reach_data%Discharge_con(n) - reach_data%Discharge_con(n+1))/delX_v(n)*dT + Area_old(n)
                 END IF
         END SELECT
         SELECT TYPE(x=>reach_data%Upstream_boundary)
             TYPE IS(JUNCTION_BOUNDARY)
-                IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT) THEN
+                IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT*safety) THEN
                     ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT -small_positive_real
+                    reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT*safety -small_positive_real
                     reach_data%Area(1) = -(reach_data%Discharge_con(2) - reach_data%Discharge_con(1))/delX_v(1)*dT + Area_old(1)
                 END IF
         END SELECT
@@ -674,9 +675,9 @@ MODULE network_solver
                     stop
                 END IF
 
-                print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
-                        network%reach_junctions(i)%Volume - volume_old, &
-                        trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
+                !print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
+                !        network%reach_junctions(i)%Volume - volume_old, &
+                !        trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
                 !        trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
                 !        trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))
             END DO
