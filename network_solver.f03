@@ -376,6 +376,13 @@ MODULE network_solver
                IF(abs(Qcon)*dT> reach_data%Area(1)*delX_v(1)-small_positive_real) THEN
                    Qpred_zero = -max(reach_data%Area(1)*delX_v(1)/dT-small_positive_real, 0._dp)
                END IF
+            ELSE
+                ! If we have a junction boundary, make sure that the inflow is not > volume in junction
+                SELECT TYPE(x=>reach_data%Upstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume-Discharge_old(1))/dT*0.333_dp )
+                END SELECT
+
             END IF
             ! As above for Qpred(n)
             Qcon=Q_pred(n)
@@ -383,6 +390,12 @@ MODULE network_solver
                IF(Qcon*dT> reach_data%Area(n)*delX_v(n)-small_positive_real) THEN
                    Q_pred(n) = max(reach_data%Area(n)*delX_v(n)/dT-small_positive_real, 0._dp)
                END IF
+            ELSE
+                ! If we have a junction boundary, make sure that the inflow is not > volume in junction
+                SELECT TYPE(x=>reach_data%Downstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume-Discharge_old(n))/dT*0.333_dp )
+                END SELECT
             END IF
 
             ! Here, we check for changes in the sign of Q_pred. This could
