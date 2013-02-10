@@ -378,10 +378,10 @@ MODULE network_solver
                END IF
             ELSE
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-                SELECT TYPE(x=>reach_data%Upstream_boundary)
-                    TYPE IS(JUNCTION_BOUNDARY)
-                        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume/dT-Discharge_old(1))*0.333_dp )
-                END SELECT
+                !SELECT TYPE(x=>reach_data%Upstream_boundary)
+                !    TYPE IS(JUNCTION_BOUNDARY)
+                !        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume/dT-Discharge_old(1))*0.333_dp )
+                !END SELECT
 
             END IF
             ! As above for Qpred(n)
@@ -392,10 +392,10 @@ MODULE network_solver
                END IF
             ELSE
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-                SELECT TYPE(x=>reach_data%Downstream_boundary)
-                    TYPE IS(JUNCTION_BOUNDARY)
-                        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume/dT-Discharge_old(n))*0.333_dp )
-                END SELECT
+                !SELECT TYPE(x=>reach_data%Downstream_boundary)
+                !    TYPE IS(JUNCTION_BOUNDARY)
+                !        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume/dT-Discharge_old(n))*0.333_dp )
+                !END SELECT
             END IF
 
             ! Here, we check for changes in the sign of Q_pred. This could
@@ -593,8 +593,26 @@ MODULE network_solver
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
         ! Try to fix up conservation at the ends
-        !reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
-        !reach_data%Discharge_con(n+1) =-delX_v(1)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
+        reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
+        reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
+
+        ! If we have a junction boundary, make sure that the inflow is not > volume in junction
+        SELECT TYPE(x=>reach_data%Downstream_boundary)
+            TYPE IS(JUNCTION_BOUNDARY)
+                IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT) THEN
+                    ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
+                    reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT +small_positive_real
+                    reach_data%Area(n) = (reach_data%Discharge_con(n) - reach_data%Discharge_con(n+1))/delX_v(n)*dT + Area_old(n)
+                END IF
+        END SELECT
+        SELECT TYPE(x=>reach_data%Upstream_boundary)
+            TYPE IS(JUNCTION_BOUNDARY)
+                IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT) THEN
+                    ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
+                    reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT -small_positive_real
+                    reach_data%Area(1) = -(reach_data%Discharge_con(2) - reach_data%Discharge_con(1))/delX_v(1)*dT + Area_old(1)
+                END IF
+        END SELECT
 
         IF(location_flags) print*, 'done'
 
@@ -646,7 +664,15 @@ MODULE network_solver
 
                 ! Update the stage
                 V = network%reach_junctions(i)%Volume
-                network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
+                IF(V>0._dp) THEN
+                    network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
+                ELSE
+                    print*, 'ERROR: V<0'
+                    print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
+                    network%reach_junctions(i)%Volume - volume_old, &
+                    trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
+                    stop
+                END IF
 
                 print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
                         network%reach_junctions(i)%Volume - volume_old, &
