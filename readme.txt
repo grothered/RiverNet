@@ -10,15 +10,15 @@ Other code is:
 1) global_defs.f03 -- global constants (e.g real precision, character length, etc)
 2) river_classes.f03 -- classes for river reach data
 2b) xsect_classes.f03 -- classes for xsectional data
-2c) reach_boundary_classes -- classes for reach boundaries
+2c) reach_boundary_classes.f03 -- classes for reach boundaries
 3) IO_util.f03 -- code to read files / manipulate strings
 3) hecras_IO_b.f03 -- code to parse the hecras input data
+4) one_d_relation_classes.f03 -- classes for a useful 'interpolation function' type object. 
 
-4) makefile
+5) makefile
 
-5) hectest.g05 -- this is the (test) hecras geometry file that I am using to develop the code. Reasonably complex
+6) other .g0x / .u0x files -- hecras geometry files to test the code
 
-6) one_d_relation_classes -- classes for a useful 'interpolation function' type object. 
 
 
 

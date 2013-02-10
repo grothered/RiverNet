@@ -60,10 +60,8 @@ MODULE reach_boundary_classes
         CHARACTER(len=charlen):: input_file ! File containing t, w and Q
         INTEGER(ip):: physical_boundaries_index ! Index of the boundary in network%physical_boundaries
 
-
         TYPE(ONE_D_RELATION):: Boundary_t_w_Q ! One-d-relation which will hold t, w, and Q timeseries for the boundary
     END TYPE PHYSICAL_BOUNDARY
-
 
     contains
 
