@@ -511,7 +511,7 @@ MODULE network_solver
         IF(wet_dry_hacks) THEN
             ! Put discharge to zero in nearly dry cells
             DO i=2,n
-            Width_cor(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_cor(i), 'area', 'width')
+                Width_cor(i) = reach_data%xsects(i)%stage_etc_curve%eval(Area_cor(i), 'area', 'width')
             END DO
             Q_cor(2:n)=merge(Q_cor(2:n), 0._dp*Q_cor(2:n), Area_cor(2:n)/max(width_cor(2:n),1.0_dp)>reach_data%wet_dry_depth)
         END IF
@@ -560,7 +560,7 @@ MODULE network_solver
             DO i=1,n-1
                 Qup = reach_data%Discharge(i+1) 
                 Qdown = reach_data%Discharge(i) 
-                Qdiff=Qup-Qdown
+                Qdiff=Qup-Qdown!max(abs(Qup), abs(Qdown), abs(Qup-Qdown))!Qup-Qdown
                 IF((Qup>=0._dp).AND.(Qdown>=0._dp)) THEN
                     IF(Qdiff*dT> max(reach_data%Area(i)*delX_v(i)-small_positive_real,0._dp)*timestep_increase_buffer) THEN
                         ! On the next timestep, the cell would go dry. Stop it by limiting Qup
@@ -597,23 +597,35 @@ MODULE network_solver
         reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-        safety=0.5_dp
-        SELECT TYPE(x=>reach_data%Downstream_boundary)
-            TYPE IS(JUNCTION_BOUNDARY)
-                IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT*safety) THEN
-                    ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT*safety +small_positive_real
-                    reach_data%Area(n) = (reach_data%Discharge_con(n) - reach_data%Discharge_con(n+1))/delX_v(n)*dT + Area_old(n)
-                END IF
-        END SELECT
-        SELECT TYPE(x=>reach_data%Upstream_boundary)
-            TYPE IS(JUNCTION_BOUNDARY)
-                IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT*safety) THEN
-                    ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT*safety -small_positive_real
-                    reach_data%Area(1) = -(reach_data%Discharge_con(2) - reach_data%Discharge_con(1))/delX_v(1)*dT + Area_old(1)
-                END IF
-        END SELECT
+        !safety=1.0_dp
+        !SELECT TYPE(x=>reach_data%Downstream_boundary)
+        !    TYPE IS(JUNCTION_BOUNDARY)
+        !        IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT*safety) THEN
+        !            ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
+        !            reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT*safety +small_positive_real
+        !            reach_data%Area(n) = (reach_data%Discharge_con(n) - reach_data%Discharge_con(n+1))/delX_v(n)*dT + Area_old(n)
+
+        !            IF(reach_data%Area(n)<0._dp) THEN
+        !                print*, 'Making xsect area n < 0. Im gonna cheat for now! CONSERVATION ERROR'
+        !                reach_data%Area(n)=0._dp
+        !                !stop
+        !            END IF
+        !        END IF
+        !END SELECT
+        !SELECT TYPE(x=>reach_data%Upstream_boundary)
+        !    TYPE IS(JUNCTION_BOUNDARY)
+        !        IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT*safety) THEN
+        !            ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
+        !            reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT*safety -small_positive_real
+        !            reach_data%Area(1) = -(reach_data%Discharge_con(2) - reach_data%Discharge_con(1))/delX_v(1)*dT + Area_old(1)
+
+        !            IF(reach_data%Area(1)<0._dp) THEN
+        !                print*, 'Making xsect area 1 < 0. Im gonna cheat for now! CONSERVATION ERROR'
+        !                reach_data%Area(1)=0._dp
+        !                !stop
+        !            END IF
+        !        END IF
+        !END SELECT
 
         IF(location_flags) print*, 'done'
 
@@ -665,14 +677,18 @@ MODULE network_solver
 
                 ! Update the stage
                 V = network%reach_junctions(i)%Volume
+            
                 IF(V>0._dp) THEN
                     network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
                 ELSE
-                    print*, 'ERROR: V<0'
+                    print*, 'ERROR: V<0: WARNING: CONSERVATION ERROR'
                     print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
                     network%reach_junctions(i)%Volume - volume_old, &
                     trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
-                    stop
+                    !stop
+                    network%reach_junctions(i)%Volume=0._dp
+                    V=0._dp
+                    network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
                 END IF
 
                 !print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
