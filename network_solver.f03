@@ -333,7 +333,7 @@ MODULE network_solver
         IF(implicit_friction) THEN
             !drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
             !                          reach_data%Drag_1D(1:n-1) )
-            drag_factor=1.0_dp*(gravity*Af*(-sign(1._dp, Q_pred)/(Area_pred**2))*&
+            drag_factor=1.0_dp*(gravity*Af*(-sign(1._dp, Q_pred)/(max(Area_pred**2,small_positive_real)))*&
                                       reach_data%Drag_1D )
             !DO i=1,n-1
             DO i=1,n
@@ -470,11 +470,13 @@ MODULE network_solver
             IF((Area_cor(i)<0._dp).OR.(Area_cor(i).NE.Area_cor(i))) THEN
                 IF(i.EQ.1) THEN
                     print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Qpred_zero, reach_data%Area(i), &
-                                                    (dT/delX_v(i))*(Q_pred(i)-Qpred_zero)
+                                                    (dT/delX_v(i))*(Q_pred(i)-Qpred_zero), i, n, drag_factor(i), & 
+                                                    reach_data%Drag_1D(i), reach_data%Discharge(i)
                     stop
                 ELSE
                     print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
-                                                    (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1))
+                                                    (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1)), i, n, drag_factor(i), &
+                                                    reach_data%Drag_1D(i), reach_data%Discharge(i)
                     stop
                
                 END IF 
@@ -513,7 +515,7 @@ MODULE network_solver
             !drag_factor(2:n)=1.0_dp*(gravity*Ab(2:n)*&
             !                 (-sign(1._dp, Q_cor(2:n))/(Area_cor(2:n)**2))*Drag1D_pred(2:n) )
             drag_factor=1.0_dp*(gravity*Ab*&
-                             (-sign(1._dp, Q_cor)/(Area_cor**2))*Drag1D_pred )
+                             (-sign(1._dp, Q_cor)/(max(Area_cor**2, small_positive_real)))*Drag1D_pred )
             !DO i=2,n
             DO i=1,n
                  IF(abs(drag_factor(i)) > 0._dp+small_positive_real) THEN
