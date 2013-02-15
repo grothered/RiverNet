@@ -471,12 +471,12 @@ MODULE network_solver
                 IF(i.EQ.1) THEN
                     print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Qpred_zero, reach_data%Area(i), &
                                                     (dT/delX_v(i))*(Q_pred(i)-Qpred_zero), i, n, drag_factor(i), & 
-                                                    reach_data%Drag_1D(i), reach_data%Discharge(i)
+                                                    reach_data%Drag_1D(i), reach_data%Discharge(i), slope(i), convective_flux(i)
                     stop
                 ELSE
                     print*, 'Area_cor(', i,') is negative, ',Area_cor(i), Q_pred(i), Q_pred(i-1), reach_data%Area(i), &
                                                     (dT/delX_v(i))*(Q_pred(i)-Q_pred(i-1)), i, n, drag_factor(i), &
-                                                    reach_data%Drag_1D(i), reach_data%Discharge(i)
+                                                    reach_data%Drag_1D(i), reach_data%Discharge(i), slope(i), convective_flux(i)
                     stop
                
                 END IF 
