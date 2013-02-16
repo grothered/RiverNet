@@ -8,9 +8,11 @@ PROGRAM main
 
     !TYPE(REACH_DATA_TYPE), ALLOCATABLE:: reach_data(:) ! Array of reaches
     TYPE(NETWORK_DATA_TYPE):: network
-    CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
+    !CHARACTER(len=charlen):: input_geometry_file='hectest.g05'
     !CHARACTER(len=charlen):: input_geometry_file='./eg/test.g01'
-    CHARACTER(len=charlen):: input_boundary_file='./eg/test.u03'
+    !CHARACTER(len=charlen):: input_boundary_file='./eg/test.u03'
+    CHARACTER(len=charlen):: input_geometry_file='./test_3rivers/marikina.g02'
+    CHARACTER(len=charlen):: input_boundary_file='./test_3rivers/marikina.u03'
 
     INTEGER(ip):: i, N_flow, N_time, M
     REAL(dp):: xx
