@@ -33,6 +33,7 @@ MODULE network_solver
 
         ! Advance time
         network%time=network%time+network%dT
+        !print*, 'new_time', network%time
         
     END SUBROUTINE evolve_hydraulics
 
@@ -106,14 +107,14 @@ MODULE network_solver
         ! Downstream. Check if flow is sub or super critical
         IF(gravity*reach_data%Area(n)/reach_data%Width(n) > (reach_data%Discharge(n)/reach_data%Area(n))**2 ) THEN
             ! Subcritical boundary
-            IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
-                ! Impose stage, extrapolate discharge
-                reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
-                                          reach_data%minbed(n)+wet_dry_depth-small_positive_real)
-                reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+            !IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
+            !    ! Impose stage, extrapolate discharge
+            !    reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
+            !                              reach_data%minbed(n)+wet_dry_depth-small_positive_real)
+            !    reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
 
-                !reach_data%Discharge(n) = reach_data%Discharge(n-1)
-            END IF
+            !    !reach_data%Discharge(n) = reach_data%Discharge(n-1)
+            !END IF
             IF(index(reach_data%Downstream_boundary%compute_method,'discharge')>0) THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
@@ -122,15 +123,15 @@ MODULE network_solver
         ELSE
             ! Supercritical boundary -- impose everything or nothing
             IF((reach_data%Discharge(n) < 0._dp).OR.(reach_data%Downstream_boundary%compute_method=='stage_discharge')) THEN
-                IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
-                    ! Force stage, set discharge to critical flow value
-                    reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
-                                              reach_data%minbed(n)+wet_dry_depth-small_positive_real)
-                    reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
-                    reach_data%Width(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'width') 
+                !IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
+                !    ! Force stage, set discharge to critical flow value
+                !    reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
+                !                              reach_data%minbed(n)+wet_dry_depth-small_positive_real)
+                !    reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
+                !    reach_data%Width(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'width') 
             
-                    reach_data%Discharge(n) = -(reach_data%Area(n)/reach_data%Width(n)*gravity)**0.5_dp*reach_data%Area(n)
-                END IF
+                !    reach_data%Discharge(n) = -(reach_data%Area(n)/reach_data%Width(n)*gravity)**0.5_dp*reach_data%Area(n)
+                !END IF
                 
                 IF(index(reach_data%Downstream_boundary%compute_method,'discharge')>0) THEN
                     ! Force discharge, set area to 'critical value' at n-1? Could compute critical area at n with some coding
@@ -152,13 +153,13 @@ MODULE network_solver
 
         IF(gravity*reach_data%Area(1)/reach_data%Width(1) > (reach_data%Discharge(1)/reach_data%Area(1))**2 ) THEN
             ! Subcritical boundary
-            IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
-                ! Impose stage, extrapolate discharge
-                reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
-                                          reach_data%minbed(1)+wet_dry_depth-small_positive_real)
-                reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-                !reach_data%Discharge(1) = reach_data%Discharge(2)
-            END IF
+            !IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
+            !    ! Impose stage, extrapolate discharge
+            !    reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
+            !                              reach_data%minbed(1)+wet_dry_depth-small_positive_real)
+            !    reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+            !    !reach_data%Discharge(1) = reach_data%Discharge(2)
+            !END IF
             IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
@@ -171,15 +172,15 @@ MODULE network_solver
 
             ! Supercritical boundary -- impose everything or nothing
             IF((reach_data%Discharge(1) > 0._dp).OR.(reach_data%Upstream_boundary%compute_method=='stage_discharge')) THEN
-                IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
-                    ! Force stage, set discharge to critical flow value
-                    reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
-                                              reach_data%minbed(1)+wet_dry_depth-small_positive_real)
-                    reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
-                    reach_data%Width(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'width') 
-            
-                    reach_data%Discharge(1) = (reach_data%Area(1)/reach_data%Width(1)*gravity)**0.5_dp*reach_data%Area(1)
-                END IF
+                !IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
+                !    ! Force stage, set discharge to critical flow value
+                !    reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
+                !                              reach_data%minbed(1)+wet_dry_depth-small_positive_real)
+                !    reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
+                !    reach_data%Width(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'width') 
+                !
+                !    reach_data%Discharge(1) = (reach_data%Area(1)/reach_data%Width(1)*gravity)**0.5_dp*reach_data%Area(1)
+                !END IF
                 
                 IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
                     ! Force discharge, set area to 'critical value'
@@ -326,7 +327,13 @@ MODULE network_solver
 
         ! Compute slope, and area, with extrapolation at n
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
-        slope(n)=(reach_data%Stage(n)-reach_data%Stage(n-1))/delX(n-1)*dry_flag(n)
+
+        ! If we have stage in the boundary, use it in setting the slope
+        IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
+            slope(n) = (reach_data%Downstream_boundary%eval(time, 'stage') - reach_data%Stage(n))/delX(n-1)*dry_flag(n)
+        ELSE
+            slope(n)=(reach_data%Stage(n)-reach_data%Stage(n-1))/delX(n-1)*dry_flag(n)
+        END IF
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
         Af(n)=Af(n-1)
@@ -518,7 +525,12 @@ MODULE network_solver
 
         ! Extrapolate Slope and Ab at 1
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
-        slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
+        !slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
+        IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
+            slope(1) = (Stage_pred(1) - reach_data%Downstream_boundary%eval(time, 'stage') )/delX(1)*dry_flag(1)
+        ELSE
+            slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
+        END IF
      
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
         Ab(1) = Ab(2)
@@ -638,6 +650,9 @@ MODULE network_solver
         reach_data%Discharge_con=(/0.5_dp*(Qpred_zero+Discharge_old(1)),&
                                    0.5_dp*(Q_pred(1:n-1) + Discharge_old(2:n)) , &
                                    0.5_dp*(Q_pred(n)+Discharge_old(n))/)
+        
+        !print*, 'Discharge_con 1: ', reach_data%Discharge_con(1)
+        !print*, 'Discharge_con n+1: ', reach_data%Discharge_con(n+1)
         ! Try to fix up conservation at the ends
         reach_data%Discharge_con(1) = delX_v(1)*(reach_data%Area(1) - Area_old(1))/dT + reach_data%Discharge_con(2)
         reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
@@ -672,6 +687,9 @@ MODULE network_solver
                     END IF
                 END IF
         END SELECT
+        
+        !print*, 'Discharge_con 1: ', reach_data%Discharge_con(1)
+        !print*, 'Discharge_con n+1: ', reach_data%Discharge_con(n+1)
 
         IF(location_flags) print*, 'done'
 
@@ -716,7 +734,8 @@ MODULE network_solver
                         stop
                     END IF
                     network%reach_junctions(i)%Volume = network%reach_junctions(i)%Volume + network%dT*Q_update
-
+                    print*, 'Q_update ', j, Q_update, trim(network%reach_data(r)%names(2)), &
+                             trim(network%reach_junctions(i)%reach_ends(j))
                     ! Update the momenta
                     ! FIXME -- use a crude average at present
                     network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update
@@ -731,7 +750,7 @@ MODULE network_solver
                 ELSE
                     print*, 'ERROR: V<0: WARNING: CONSERVATION ERROR'
                     print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
-                    network%reach_junctions(i)%Volume - volume_old, &
+                    network%reach_junctions(i)%Volume - volume_old, network%reach_junctions(i)%Discharge_x,&
                     trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
                     stop
                     !network%reach_junctions(i)%Volume=0._dp
@@ -740,7 +759,7 @@ MODULE network_solver
                 END IF
 
                 print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
-                        network%reach_junctions(i)%Volume - volume_old, &
+                        network%reach_junctions(i)%Volume - volume_old, network%reach_junctions(i)%Discharge_x,&
                         trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' ',&
                         trim(network%reach_junctions(i)%reach_names(2,2)), '-',trim(network%reach_junctions(i)%reach_ends(2)),' ', &
                         trim(network%reach_junctions(i)%reach_names(3,2)), '-',trim(network%reach_junctions(i)%reach_ends(3))

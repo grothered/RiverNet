@@ -20,7 +20,7 @@ MODULE global_defs
     ! A small 'almost zero' number 
     real(dp), PARAMETER, PUBLIC:: small_positive_real=1.0e-10_dp
 
-    real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=1000._dp
+    real(dp), PARAMETER, PUBLIC:: maximum_allowed_timestep=30._dp
     real(dp), PARAMETER, PUBLIC:: minimum_allowed_timestep=1.e-04_dp
 
     ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
@@ -41,7 +41,7 @@ MODULE global_defs
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Simulation duration parameters
 
-    integer, parameter, public:: max_its=4000 ! Number of time-steps
+    integer, parameter, public:: max_its=10000 ! Number of time-steps
    
     ! Start time for simulation 
     real(dp), PARAMETER, PUBLIC:: start_time=0._dp

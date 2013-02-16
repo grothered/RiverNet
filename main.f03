@@ -42,7 +42,7 @@ PROGRAM main
 
     ! Set the initial conditions
     print*, 'Seting initial conditions ...'
-    call set_initial_conditions(network, 1.0e-04_dp, 0._dp)
+    call set_initial_conditions(network, 1.0e-01_dp, 0._dp)
 
 
     ! Run the simulation

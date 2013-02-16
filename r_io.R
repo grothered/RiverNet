@@ -1,6 +1,6 @@
 ## R routines to read output
 
-get_flow<-function(flowfile='output.txt', timefile='time.txt', numvars=5){
+get_flow<-function(flowfile='output.txt', timefile=paste(dirname(flowfile), '/time.txt',sep=""), numvars=5){
     dd=read.table(flowfile)
     dd=as.matrix(dd)
     v=seq(1,dim(dd)[1],by=numvars)

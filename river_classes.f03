@@ -287,6 +287,7 @@ MODULE river_classes
 
         ! Initialise time to 'start_time' + 'model_zero_datetime'
         network%time = start_time + datetime_string_to_seconds(model_zero_datetime) ! Time (s) from arbitrary start time
+        print*, 'Start time is ', network%time
 
         ! Loop over every reach and initialise depth/discharge
         DO r=1,size(network%reach_data)
