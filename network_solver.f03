@@ -53,7 +53,7 @@ MODULE network_solver
 
         ! Loop over all xsections on all reaches and get the new timestep
         DO i=1,network%num_reaches
-            DO j=1, network%reach_data(i)%xsect_count-1
+            DO j=1, network%reach_data(i)%xsect_count
                 ! 1D Velocity
                 vel=network%reach_data(i)%Discharge(j)/(network%reach_data(i)%Area(j)+ small_positive_real)
                 ! Gravity wavespeed = sqrt( g * mean_depth)
@@ -61,7 +61,8 @@ MODULE network_solver
                 local_wavespeed = abs(vel) + grav_wavespeed
 
                 ! FIXME: Check interpretation of downstream distances -- perhaps incorrect
-                local_dt = network%reach_data(i)%downstream_dists(j,2)/(local_wavespeed + small_positive_real)
+                !local_dt = network%reach_data(i)%downstream_dists(j,2)/(local_wavespeed + small_positive_real)
+                local_dt = network%reach_data(i)%delX_v(j)/(local_wavespeed + small_positive_real)
                 local_dt = local_dt*network%CFL
 
                 IF(local_dt<minimum_allowed_timestep) THEN
