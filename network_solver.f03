@@ -57,12 +57,20 @@ MODULE network_solver
                 ! 1D Velocity
                 vel=network%reach_data(i)%Discharge(j)/(network%reach_data(i)%Area(j)+ small_positive_real)
                 ! Gravity wavespeed = sqrt( g * mean_depth)
-                grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/network%reach_data(i)%Width(j))**0.5_dp
+                grav_wavespeed=(gravity*network%reach_data(i)%Area(j)/(network%reach_data(i)%Width(j)+small_positive_real))**0.5_dp
                 local_wavespeed = abs(vel) + grav_wavespeed
 
                 ! FIXME: Check interpretation of downstream distances -- perhaps incorrect
                 local_dt = network%reach_data(i)%downstream_dists(j,2)/(local_wavespeed + small_positive_real)
                 local_dt = local_dt*network%CFL
+
+                IF(local_dt<minimum_allowed_timestep) THEN
+                    print*, 'ERROR: local_dt is < minimum_allowed_timestep on reach ', trim(network%reach_data(i)%names(1)), &
+                             trim(network%reach_data(i)%names(2)), ' xsect ', j
+                    print*,  vel, grav_wavespeed, local_wavespeed, local_dt
+                    stop
+                END IF
+
                 dT = min(dT, local_dt)
             END DO
         END DO
@@ -96,13 +104,14 @@ MODULE network_solver
         ! Downstream. Check if flow is sub or super critical
         IF(gravity*reach_data%Area(n)/reach_data%Width(n) > (reach_data%Discharge(n)/reach_data%Area(n))**2 ) THEN
             ! Subcritical boundary
-            IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
+            IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0._dp) THEN
                 ! Impose stage, extrapolate discharge
                 reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
                                           reach_data%minbed(n)+wet_dry_depth-small_positive_real)
                 reach_data%Area(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'area')
 
                 !reach_data%Discharge(n) = reach_data%Discharge(n-1)
+            END IF
             ELSE IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
@@ -267,6 +276,7 @@ MODULE network_solver
         ! Use channel delX as temporary delX here
 
         ! delX gives the distance between cross-sections
+        ! Warning: delX(n) might be zero (since the downstream distance is not really defined
         delX=reach_data%delX
         ! delX_v denotes the lengths of each 'volume', centred around each
         ! cross-section, with boundaries at the mid-point between cross-sections
@@ -315,11 +325,13 @@ MODULE network_solver
             convective_flux=dry_flag*0._dp
         END IF
 
+        ! Compute slope, and area, with extrapolation at n
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
-        slope(n)=slope(n-1)
+        slope(n)=(reach_data%Stage(n)-reach_data%Stage(n-1))/delX(n-1)*dry_flag(n)
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
         Af(n)=Af(n-1)
+
         ! Compute Q predictor with implicit friction
         ! Convective + gravity terms
         !Q_pred(1:n-1) = reach_data%Discharge(1:n-1) -  &
@@ -329,16 +341,21 @@ MODULE network_solver
                        dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), convective_flux(n)-convective_flux(n-1) /) &
                        -dT*gravity*Af*slope 
 
+        !print*, 'Qp1, No Frict: ', Q_pred(1)
         ! IMPLICIT FRICTION: g*Af*Sf = drag_factor*Q_pred*abs(Q_pred)
         IF(implicit_friction) THEN
             !drag_factor(1:n-1)=1.0_dp*(gravity*Af(1:n-1)*(-sign(1._dp, Q_pred(1:n-1))/(Area_pred(1:n-1)**2))*&
             !                          reach_data%Drag_1D(1:n-1) )
             drag_factor=1.0_dp*(gravity*Af*(-sign(1._dp, Q_pred)/(max(Area_pred**2,small_positive_real)))*&
                                       reach_data%Drag_1D )
+            !print*, 'df1: ', drag_factor(1), dT*drag_factor(1)*Q_pred(1)
             !DO i=1,n-1
             DO i=1,n
                  IF(abs(drag_factor(i)) > 0._dp+small_positive_real) THEN
                     Q_pred(i)= (1._dp - sqrt(1._dp- 4._dp*dT*drag_factor(i)*Q_pred(i) ))/(2._dp*dT*drag_factor(i))
+                    !IF(i==1) THEN
+                    !    print*, Q_pred(i), 1.0_dp/(dT*drag_factor(i)), dT
+                    !END IF
                  ELSE
                     ! Friction is negligible
                  END IF
@@ -372,9 +389,11 @@ MODULE network_solver
                         - reach_data%Discharge(1)
         ELSE
             ! Need to give this a value
-            Qpred_zero = 2.0_dp*Q_pred(1) -Q_pred(2)!2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2)
+            Qpred_zero = Q_pred(1) !reach_data%Discharge(1) !min(2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2))
+                        ! 2.0_dp*Q_pred(1) -Q_pred(2)!2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2)
         END IF
 
+        !print*, 'Qp1, A: ', Q_pred(1)
 
         IF(wet_dry_hacks) THEN
 
@@ -402,10 +421,10 @@ MODULE network_solver
                END IF
             ELSE
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-                !SELECT TYPE(x=>reach_data%Upstream_boundary)
-                !    TYPE IS(JUNCTION_BOUNDARY)
-                !        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume/dT-Discharge_old(1))*0.333_dp )
-                !END SELECT
+                SELECT TYPE(x=>reach_data%Upstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                        Qpred_zero=min(Qpred_zero, (2.0_dp*x%Volume/dT-Discharge_old(1)) )
+                END SELECT
 
             END IF
             ! As above for Qpred(n)
@@ -416,10 +435,10 @@ MODULE network_solver
                END IF
             ELSE
                 ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-                !SELECT TYPE(x=>reach_data%Downstream_boundary)
-                !    TYPE IS(JUNCTION_BOUNDARY)
-                !        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume/dT-Discharge_old(n))*0.333_dp )
-                !END SELECT
+                SELECT TYPE(x=>reach_data%Downstream_boundary)
+                    TYPE IS(JUNCTION_BOUNDARY)
+                        Q_pred(n)=max(Q_pred(n), (-2.0_dp*x%Volume/dT-Discharge_old(n)) )
+                END SELECT
             END IF
 
             ! Here, we check for changes in the sign of Q_pred. This could
@@ -440,6 +459,7 @@ MODULE network_solver
 
         END IF
 
+        !print*, 'Qp1, B: ', Q_pred(1)
 
         ! Back-calculate stage/width/drag
         !print*, 'pred_interp'
@@ -455,6 +475,7 @@ MODULE network_solver
                            Area_pred(1:n-1)/max(Width_pred(1:n-1),1.0_dp) > reach_data%wet_dry_depth)
         END IF
 
+        !print*, 'Qp1, C: ', Q_pred(1)
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! CORRECTOR STEP
         IF(location_flags) print*, 'Start Cor'
@@ -498,7 +519,7 @@ MODULE network_solver
 
         ! Extrapolate Slope and Ab at 1
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
-        slope(1) = slope(2)
+        slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
      
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
         Ab(1) = Ab(2)
@@ -623,12 +644,12 @@ MODULE network_solver
         reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-        !safety=1.0_dp
+        safety=1.0_dp
         SELECT TYPE(x=>reach_data%Downstream_boundary)
             TYPE IS(JUNCTION_BOUNDARY)
                 IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT*safety) THEN
                     ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(n+1) = -2.0_dp*x%Volume/dT*safety +small_positive_real
+                    reach_data%Discharge_con(n+1) = min(-2.0_dp*x%Volume/dT*safety +small_positive_real, 0._dp)
                     reach_data%Area(n) = (reach_data%Discharge_con(n) - reach_data%Discharge_con(n+1))/delX_v(n)*dT + Area_old(n)
 
                     IF(reach_data%Area(n)<0._dp) THEN
@@ -642,7 +663,7 @@ MODULE network_solver
             TYPE IS(JUNCTION_BOUNDARY)
                 IF(reach_data%Discharge_con(1) > 2.0_dp*x%Volume/dT*safety) THEN
                     ! Volume is too large, let's clip it and adjust the area accordingly (and hope that doesn't go dry)
-                    reach_data%Discharge_con(1) = 2.0_dp*x%Volume/dT*safety -small_positive_real
+                    reach_data%Discharge_con(1) = max(2.0_dp*x%Volume/dT*safety -small_positive_real, 0._dp)
                     reach_data%Area(1) = -(reach_data%Discharge_con(2) - reach_data%Discharge_con(1))/delX_v(1)*dT + Area_old(1)
 
                     IF(reach_data%Area(1)<0._dp) THEN
@@ -685,10 +706,12 @@ MODULE network_solver
                     IF(network%reach_junctions(i)%reach_ends(j) == 'Up') THEN
                         M = network%reach_data(r)%xsect_count
                         Q_update=network%reach_data(r)%Discharge_con(M+1)
-                        Qx_update= Q_update
+                        ! Momentum update = u*Q
+                        Qx_update= Q_update*network%reach_data(r)%Discharge(M)/(network%reach_data(r)%Area(M)+small_positive_real)
                     ELSEIF(network%reach_junctions(i)%reach_ends(j) == 'Dn') THEN
                         Q_update=-network%reach_data(r)%Discharge_con(1)
-                        Qx_update= Q_update
+                        ! Momentum update = u*Q
+                        Qx_update= Q_update*network%reach_data(r)%Discharge(1)/(network%reach_data(r)%Area(1)+small_positive_real)
                     ELSE
                         print*, 'ERROR: reach end is neither Up or Dn'
                         stop
@@ -697,7 +720,7 @@ MODULE network_solver
 
                     ! Update the momenta
                     ! FIXME -- use a crude average at present
-                    network%reach_junctions(i)%Discharge_x=0._dp !network%reach_junctions(i)%Discharge_x + network%dT*Qx_update/(1._dp*N)
+                    network%reach_junctions(i)%Discharge_x=network%reach_junctions(i)%Discharge_x + network%dT*Qx_update
                     network%reach_junctions(i)%Discharge_y=0._dp
                 END DO
 
@@ -711,10 +734,10 @@ MODULE network_solver
                     print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &
                     network%reach_junctions(i)%Volume - volume_old, &
                     trim(network%reach_junctions(i)%reach_names(1,2)) ,'-',trim(network%reach_junctions(i)%reach_ends(1)),' '
-                    !stop
-                    network%reach_junctions(i)%Volume=0._dp
-                    V=0._dp
-                    network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
+                    stop
+                    !network%reach_junctions(i)%Volume=0._dp
+                    !V=0._dp
+                    !network%reach_junctions(i)%Stage = network%reach_junctions(i)%Stage_volume_curve%eval( V, 'volume', 'stage')
                 END IF
 
                 print*, 'junction ', i, ' s= ', network%reach_junctions(i)%Stage, network%reach_junctions(i)%Volume, &

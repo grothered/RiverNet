@@ -249,6 +249,12 @@ MODULE river_classes
             print*, reach%delX_v
             stop
         END IF
+        
+        IF(minval(reach%delX)<=0._dp) THEN
+            print*, 'Warning: min delX <= 0 on reach ', trim(reach%names(1)), trim(reach%names(2))
+            !print*, reach%delX
+            !stop
+        END IF
 
     END SUBROUTINE get_downstream_dists_from_xsections
 

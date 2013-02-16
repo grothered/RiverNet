@@ -15,6 +15,8 @@ PROGRAM main
     INTEGER(ip):: i, N_flow, N_time, M
     REAL(dp):: xx
 
+    !print*, index('stage_discharge', 'discharge')
+    !stop
 
     ! Initiate the geometry by reading the data
     print*, 'Reading geometry ...'
