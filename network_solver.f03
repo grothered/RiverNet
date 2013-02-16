@@ -101,10 +101,11 @@ MODULE network_solver
         !reach_data%Width(n-1) = reach_data%xsects(n-1)%stage_etc_curve%eval(reach_data%Area(n-1), 'area', 'width')
 
         IF(location_flags) print*, '  Downstream Boundary'
+
         ! Downstream. Check if flow is sub or super critical
         IF(gravity*reach_data%Area(n)/reach_data%Width(n) > (reach_data%Discharge(n)/reach_data%Area(n))**2 ) THEN
             ! Subcritical boundary
-            IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0._dp) THEN
+            IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
                 ! Impose stage, extrapolate discharge
                 reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
                                           reach_data%minbed(n)+wet_dry_depth-small_positive_real)
@@ -112,18 +113,15 @@ MODULE network_solver
 
                 !reach_data%Discharge(n) = reach_data%Discharge(n-1)
             END IF
-            ELSE IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+            IF(index(reach_data%Downstream_boundary%compute_method,'discharge')>0) THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
-            ELSE
-                print*, 'ERROR: compute_method not set for a boundary'
-                stop
             END IF
     
         ELSE
             ! Supercritical boundary -- impose everything or nothing
-            IF(reach_data%Discharge(n) < 0._dp) THEN
-                IF(reach_data%Downstream_boundary%compute_method=='stage') THEN
+            IF((reach_data%Discharge(n) < 0._dp).OR.(reach_data%Downstream_boundary%compute_method=='stage_discharge')) THEN
+                IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
                     ! Force stage, set discharge to critical flow value
                     reach_data%Stage(n) = max(reach_data%Downstream_boundary%eval(time+dT, 'stage'), &
                                               reach_data%minbed(n)+wet_dry_depth-small_positive_real)
@@ -131,18 +129,19 @@ MODULE network_solver
                     reach_data%Width(n) = reach_data%xsects(n)%stage_etc_curve%eval(reach_data%Stage(n), 'stage', 'width') 
             
                     reach_data%Discharge(n) = -(reach_data%Area(n)/reach_data%Width(n)*gravity)**0.5_dp*reach_data%Area(n)
+                END IF
                 
-                ELSE IF (reach_data%Downstream_boundary%compute_method=='discharge') THEN
+                IF(index(reach_data%Downstream_boundary%compute_method,'discharge')>0) THEN
                     ! Force discharge, set area to 'critical value' at n-1? Could compute critical area at n with some coding
                     reach_data%Discharge(n) = reach_data%Downstream_boundary%eval(time+dT, 'discharge')
                     
                     ! Note: Here we are lazy, in that we evaluate width at time tlast.      
                     ! (Q/A)**2 = (g*A/B); A**3=Q**2*(B/g)
                     reach_data%Area(n) = (abs(reach_data%Discharge(n))*(reach_data%Width(n)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
-                ELSE
-                    print*, 'ERROR: compute_method not set for a boundary'
-                    stop
                 END IF
+                !    print*, 'ERROR: compute_method not set for a boundary'
+                !    stop
+                !END IF
             END IF
         END IF
 
@@ -152,25 +151,26 @@ MODULE network_solver
 
         IF(gravity*reach_data%Area(1)/reach_data%Width(1) > (reach_data%Discharge(1)/reach_data%Area(1))**2 ) THEN
             ! Subcritical boundary
-            IF(reach_data%Upstream_boundary%compute_method=='stage') THEN
+            IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
                 ! Impose stage, extrapolate discharge
                 reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
                                           reach_data%minbed(1)+wet_dry_depth-small_positive_real)
                 reach_data%Area(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'area')
                 !reach_data%Discharge(1) = reach_data%Discharge(2)
-            ELSE IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
+            END IF
+            IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
                 ! Impose discharge, area is already good
                 reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
-            ELSE
-                print*, 'ERROR: compute_method not set for a boundary'
-                stop
+            !ELSE
+            !    print*, 'ERROR: compute_method not set for a boundary'
+            !    stop
             END IF
     
         ELSE
 
             ! Supercritical boundary -- impose everything or nothing
-            IF(reach_data%Discharge(1) > 0._dp) THEN
-                IF(reach_data%Upstream_boundary%compute_method=='stage') THEN
+            IF((reach_data%Discharge(1) > 0._dp).OR.(reach_data%Upstream_boundary%compute_method=='stage_discharge')) THEN
+                IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
                     ! Force stage, set discharge to critical flow value
                     reach_data%Stage(1) = max(reach_data%Upstream_boundary%eval(time+dT, 'stage'), &
                                               reach_data%minbed(1)+wet_dry_depth-small_positive_real)
@@ -178,16 +178,14 @@ MODULE network_solver
                     reach_data%Width(1) = reach_data%xsects(1)%stage_etc_curve%eval(reach_data%Stage(1), 'stage', 'width') 
             
                     reach_data%Discharge(1) = (reach_data%Area(1)/reach_data%Width(1)*gravity)**0.5_dp*reach_data%Area(1)
+                END IF
                 
-                ELSE IF (reach_data%Upstream_boundary%compute_method=='discharge') THEN
+                IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
                     ! Force discharge, set area to 'critical value'
                     reach_data%Discharge(1) = reach_data%Upstream_boundary%eval(time+dT, 'discharge')
                    
                     ! Note: Here we are lazy, in that we evaluate width at time tlast.      
                     reach_data%Area(1) = (abs(reach_data%Discharge(1))*(reach_data%Width(1)/gravity)**0.5_dp)**(2.0_dp/3.0_dp)
-                ELSE
-                    print*, 'ERROR: compute_method not set for a boundary'
-                    stop
                 END IF
             END IF
         END IF
@@ -377,18 +375,18 @@ MODULE network_solver
         ! Try to enforce 'conservative' discharge boundaries
         ! These should ensure that inflows have the desired values
         ! Idea: 0.5*(Qpred_zero + Qlast(1)) = Desired discharge at time + dT/2, at 1/2
-        IF(reach_data%Downstream_boundary%compute_method=='discharge') THEN
+        IF(index(reach_data%Downstream_boundary%compute_method,'discharge')>0) THEN
             ! This will enforce the discharge
             Q_pred(n) = ( reach_data%Downstream_boundary%eval(time+dT, 'discharge') ) !+ &
         END IF
 
-        IF(reach_data%Upstream_boundary%compute_method=='discharge') THEN
+        IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
             ! This enforces the discharge
             Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                         reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
                         - reach_data%Discharge(1)
         ELSE
-            ! Need to give this a value
+        !    ! Need to give this a value
             Qpred_zero = Q_pred(1) !reach_data%Discharge(1) !min(2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2))
                         ! 2.0_dp*Q_pred(1) -Q_pred(2)!2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2)
         END IF

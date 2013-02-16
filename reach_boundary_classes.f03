@@ -18,7 +18,7 @@ MODULE reach_boundary_classes
         REAL(dp):: boundary_location(2) ! x-y data associated with the boundary
 
         ! Set flag to determine computation method for sub-critical boundary 
-        CHARACTER(len=charlen):: compute_method ! 'stage', 'discharge', Incoming_characteristic,...'
+        CHARACTER(len=charlen):: compute_method ! 'stage', 'discharge', 'stage_discharge' ,...
 
         contains
         PROCEDURE:: print => print_boundary
