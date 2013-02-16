@@ -26,7 +26,7 @@ MODULE global_defs
     ! Consecutive timesteps are limited in size to max_timestep_increase*(dT_last)
     real(dp), PARAMETER, PUBLIC:: max_timestep_increase=1.30_dp ! dt_next <= dt_last * max_timestep_increase
 
-    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=1.00_dp
+    real(dp), PARAMETER, PUBLIC:: cfl_1d_solver=0.99999_dp
     
     real(dp), PARAMETER, PUBLIC:: wet_dry_depth=1.0e-03_dp ! Used to define 'dry' cells at which we zero discharge / flux
     

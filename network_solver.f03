@@ -321,13 +321,16 @@ MODULE network_solver
 
         IF(convective_terms) THEN
             convective_flux= reach_data%Discharge**2 / max(reach_data%Area, small_positive_real) * dry_flag
+
+            ! Experimental limiting, doesn't work
+            !call minmod_limit(convective_flux, n)
         ELSE
             convective_flux=dry_flag*0._dp
         END IF
 
+        !call minmod_limit(reach_data%Stage,n)
         ! Compute slope, and area, with extrapolation at n
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
-
         ! If we have stage in the boundary, use it in setting the slope
         IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
             slope(n) = (reach_data%Downstream_boundary%eval(time, 'stage') - reach_data%Stage(n))/delX(n-1)*dry_flag(n)
@@ -344,7 +347,8 @@ MODULE network_solver
         !               dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Af(1:n-1)*slope(1:n-1) 
         Q_pred= reach_data%Discharge -  &
-                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), convective_flux(n)-convective_flux(n-1) /) &
+                       !dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp /) &
+                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp-convective_flux(n) /) &
                        -dT*gravity*Af*slope 
 
         !print*, 'Qp1, No Frict: ', Q_pred(1)
@@ -389,13 +393,14 @@ MODULE network_solver
         END IF
 
         IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
-            ! This enforces the discharge
+            ! This enforces the discharge for physical boundaries, but might
+            ! not work for junctions
             Qpred_zero=( reach_data%Upstream_boundary%eval(time+dT, 'discharge') + &
                         reach_data%Upstream_boundary%eval(time, 'discharge')  ) &
                         - reach_data%Discharge(1)
         ELSE
         !    ! Need to give this a value
-            Qpred_zero = Q_pred(1) !reach_data%Discharge(1) !min(2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2))
+            Qpred_zero = 2.0_dp*Q_pred(1)-Q_pred(2)! !reach_data%Discharge(1) !min(2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2))
                         ! 2.0_dp*Q_pred(1) -Q_pred(2)!2.0_dp*reach_data%Discharge(1)-reach_data%Discharge(2)
         END IF
 
@@ -519,10 +524,16 @@ MODULE network_solver
         
         IF(convective_terms) THEN
             convective_flux = Q_pred**2 / max(Area_pred, small_positive_real) * dry_flag  
+
+            ! Experimental limiting, doesn't work
+            !call minmod_limit(convective_flux, n)
+
         ELSE
             convective_flux=dry_flag*0._dp
         END IF
 
+        ! Experimental limiting
+        !call minmod_limit(Stage_pred,n)
         ! Extrapolate Slope and Ab at 1
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         !slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
@@ -531,6 +542,7 @@ MODULE network_solver
         ELSE
             slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
         END IF
+        
      
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
         Ab(1) = Ab(2)
@@ -539,7 +551,8 @@ MODULE network_solver
         !               dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Ab(2:n)*slope(2:n) 
         Q_cor = reach_data%Discharge -  &
-                       dT/delX_v*(/ convective_flux(2) - convective_flux(1),(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       !dT/delX_v*(/ 0._dp ,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       dT/delX_v*(/ convective_flux(1) -0._dp,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
                        -dT*gravity*Ab*slope 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
@@ -768,4 +781,38 @@ MODULE network_solver
 
     END SUBROUTINE update_junction_values
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    FUNCTION minmod(a,b)
+        REAL(dp), INTENT(IN):: a, b
+        REAL(dp):: minmod
+
+        IF(sign(1.0_dp, a) /=sign(1.0_dp, b)) THEN
+            minmod=0._dp
+        ELSE
+            minmod=min(abs(a), abs(b))*sign(1.0_dp, a)
+        END IF
+
+    END FUNCTION minmod
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE minmod_limit(X, n)
+        INTEGER(ip), INTENT(IN)::n
+        REAL(dp), INTENT(INOUT):: X(n)
+
+        INTEGER:: i
+        REAL(dp):: Xtmp(n)
+
+        ! Experimental limiting
+        Xtmp=X
+        DO i=2,n-1
+            IF(sign(1.0_dp, X(i)-X(i-1))== &
+               sign(1.0_dp, X(i+1)-X(i))*(-1)) THEN
+                Xtmp(i) = minmod(X(i+1), X(i-1))
+            END IF
+        END DO
+        X=Xtmp
+    
+    END SUBROUTINE
+
+
+
 END MODULE network_solver
