@@ -266,7 +266,7 @@ MODULE network_solver
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
         REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety, ds_w, ds_q, us_w, us_q
-        LOGICAL:: implicit_friction=.TRUE., convective_terms=.FALSE., location_flags=.FALSE.
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -352,8 +352,8 @@ MODULE network_solver
         !               dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Af(1:n-1)*slope(1:n-1) 
         Q_pred= reach_data%Discharge -  &
-                       !dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp /) &
-                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp-convective_flux(n) /) &
+                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp /) &
+                       !dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp-convective_flux(n) /) &
                        -dT*gravity*Af*slope 
 
         !print*, 'Qp1, No Frict: ', Q_pred(1)
@@ -565,8 +565,8 @@ MODULE network_solver
         !               dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Ab(2:n)*slope(2:n) 
         Q_cor = reach_data%Discharge -  &
-                       !dT/delX_v*(/ 0._dp ,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
-                       dT/delX_v*(/ convective_flux(1) -0._dp,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       dT/delX_v*(/ 0._dp ,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       !dT/delX_v*(/ convective_flux(1) -0._dp,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
                        -dT*gravity*Ab*slope 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
