@@ -265,8 +265,8 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
-        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety, ds_w
-        LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
+        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety, ds_w, ds_q, us_w, us_q
+        LOGICAL:: implicit_friction=.TRUE., convective_terms=.FALSE., location_flags=.FALSE.
 
         ! Predefine some useful vars
         n=reach_data%xsect_count
@@ -308,8 +308,8 @@ MODULE network_solver
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
         ! Boundary condition
-        !Area_pred(n) = reach_data%Area(n)
-        Area_pred(n) = reach_data%xsects(n)%stage_etc_curve%eval(ds_w, 'stage', 'Area')
+        Area_pred(n) = reach_data%Area(n)
+        !Area_pred(n) = reach_data%xsects(n)%stage_etc_curve%eval(ds_w, 'stage', 'area')
 
         ! Check it
         DO i=1,n-1
@@ -341,11 +341,7 @@ MODULE network_solver
         ! Compute slope, and area, with extrapolation at n
         slope(1:n-1) = (reach_data%Stage(2:n) - reach_data%Stage(1:n-1))/delX(1:n-1)*dry_flag(1:n-1)
         ! If we have stage in the boundary, use it in setting the slope
-        IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
-            slope(n) = (reach_data%Downstream_boundary%eval(time, 'stage') - reach_data%Stage(n))/delX(n-1)*dry_flag(n)
-        ELSE
-            slope(n)=(reach_data%Stage(n)-reach_data%Stage(n-1))/delX(n-1)*dry_flag(n)
-        END IF
+        slope(n) = (ds_w - reach_data%Stage(n))/delX(n-1)*dry_flag(n)
 
         Af(1:n-1)=0.5_dp*(reach_data%Area(1:n-1)+reach_data%Area(2:n)) ! 'Forward' area estimate
         Af(n)=Af(n-1)
@@ -503,8 +499,17 @@ MODULE network_solver
         ! Compute Area corrector
         Area_cor(2:n) = reach_data%Area(2:n) -dT/delX_v(2:n)*&
                           (Q_pred(2:n) - Q_pred(1:n-1))
+        
         ! Discharge Conservative boundary treatment.
-        Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
+
+        IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
+            Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
+        ELSE
+            IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
+                us_w = reach_data%Upstream_boundary%eval(time+dt, 'stage')
+                Area_cor(1) = reach_data%xsects(1)%stage_etc_curve%eval(us_w, 'stage', 'area')            
+            END IF
+        END IF
         
         ! ERROR CHECK
         DO i=1,n
@@ -547,7 +552,7 @@ MODULE network_solver
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         !slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
         IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
-            slope(1) = (Stage_pred(1) - reach_data%Downstream_boundary%eval(time, 'stage') )/delX(1)*dry_flag(1)
+            slope(1) = (Stage_pred(1) - reach_data%Upstream_boundary%eval(time, 'stage') )/delX(1)*dry_flag(1)
         ELSE
             slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
         END IF

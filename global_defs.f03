@@ -41,7 +41,7 @@ MODULE global_defs
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Simulation duration parameters
 
-    integer, parameter, public:: max_its=100000 ! Number of time-steps
+    integer, parameter, public:: max_its=10000 ! Number of time-steps
    
     ! Start time for simulation 
     real(dp), PARAMETER, PUBLIC:: start_time=0._dp
