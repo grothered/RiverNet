@@ -299,6 +299,7 @@ MODULE network_solver
         IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
             ds_w = reach_data%Downstream_boundary%eval(time, 'stage')
         ELSE
+            ! First order extrapolation
             ds_w = 2.0_dp*reach_data%Stage(n) -reach_data%Stage(n-1)
         END IF
         
@@ -352,8 +353,8 @@ MODULE network_solver
         !               dT/delX_v(1:n-1)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Af(1:n-1)*slope(1:n-1) 
         Q_pred= reach_data%Discharge -  &
-                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp /) &
-                       !dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp-convective_flux(n) /) &
+                       !dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), 0._dp /) &
+                       dT/delX_v*(/ (convective_flux(2:n) - convective_flux(1:n-1)), -convective_flux(n-1)+convective_flux(n) /) &
                        -dT*gravity*Af*slope 
 
         !print*, 'Qp1, No Frict: ', Q_pred(1)
@@ -504,10 +505,12 @@ MODULE network_solver
 
         IF(index(reach_data%Upstream_boundary%compute_method,'discharge')>0) THEN
             Area_cor(1) = reach_data%Area(1) -dT/delX_v(1)*(Q_pred(1)-Qpred_zero)
+            us_w = 2.0*Stage_pred(1) - Stage_pred(2)
         ELSE
             IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
                 us_w = reach_data%Upstream_boundary%eval(time+dt, 'stage')
                 Area_cor(1) = reach_data%xsects(1)%stage_etc_curve%eval(us_w, 'stage', 'area')            
+                Qpred_zero = (Area_cor(1) - reach_data%Area(1))*delX_v(1)/dT + Q_pred(1)
             END IF
         END IF
         
@@ -551,11 +554,11 @@ MODULE network_solver
         ! Extrapolate Slope and Ab at 1
         slope(2:n) = (Stage_pred(2:n) - Stage_pred(1:n-1))/delX(1:n-1)*dry_flag(2:n)
         !slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
-        IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
-            slope(1) = (Stage_pred(1) - reach_data%Upstream_boundary%eval(time, 'stage') )/delX(1)*dry_flag(1)
-        ELSE
-            slope(1) = (Stage_pred(2)-Stage_pred(1))/delX(1)*dry_flag(1)
-        END IF
+        !IF(index(reach_data%Upstream_boundary%compute_method,'stage')>0) THEN
+        !    slope(1) = (Stage_pred(1) - reach_data%Upstream_boundary%eval(time, 'stage') )/delX(1)*dry_flag(1)
+        !ELSE
+        slope(1) = (Stage_pred(1)-us_w)/delX(1)*dry_flag(1)
+        !END IF
         
      
         Ab(2:n)=0.5_dp*(Area_pred(1:n-1)+Area_pred(2:n)) ! 'backward' area estimate
@@ -565,8 +568,8 @@ MODULE network_solver
         !               dT/delX_v(2:n)*(convective_flux(2:n) - convective_flux(1:n-1)) &
         !               -dT*gravity*Ab(2:n)*slope(2:n) 
         Q_cor = reach_data%Discharge -  &
-                       dT/delX_v*(/ 0._dp ,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
-                       !dT/delX_v*(/ convective_flux(1) -0._dp,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       !dT/delX_v*(/ 0._dp ,(convective_flux(2:n) - convective_flux(1:n-1)) /) &
+                       dT/delX_v*(/ -convective_flux(1) +convective_flux(2),(convective_flux(2:n) - convective_flux(1:n-1)) /) &
                        -dT*gravity*Ab*slope 
         
         ! IMPLICIT FRICTION: g*Ab*Sf = drag_factor*Q_cor*abs(Q_cor)
@@ -612,7 +615,7 @@ MODULE network_solver
         reach_data%Area(1:n) = 0.5_dp*(Area_pred(1:n) + Area_cor(1:n)) 
 
         !print*, 'before boundary', reach_data%Area(1), reach_data%Area(n)
-        IF(location_flags) print*, 'Boundary conditions'
+        !IF(location_flags) print*, 'Boundary conditions'
         call apply_boundary_conditions(reach_data, time, dT, n, location_flags)
 
        
