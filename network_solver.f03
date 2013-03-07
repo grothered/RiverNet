@@ -685,7 +685,7 @@ MODULE network_solver
         reach_data%Discharge_con(n+1) =-delX_v(n)*(reach_data%Area(n) - Area_old(n))/dT +reach_data%Discharge_con(n)
 
         ! If we have a junction boundary, make sure that the inflow is not > volume in junction
-        safety=1.0_dp
+        safety=0.5_dp
         SELECT TYPE(x=>reach_data%Downstream_boundary)
             TYPE IS(JUNCTION_BOUNDARY)
                 IF(reach_data%Discharge_con(n+1) < -2.0_dp*x%Volume/dT*safety) THEN
