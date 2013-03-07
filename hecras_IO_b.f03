@@ -312,7 +312,7 @@ module hecras_IO
 
             jb=>network%reach_junctions(junction_count)
             jb%boundary_type='junction_boundary'    
-            jb%compute_method='stage_discharge'
+            jb%compute_method='stage' !'stage_discharge'
             jb%reach_junctions_index=junction_count
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Read the junction information           

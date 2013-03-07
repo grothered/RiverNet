@@ -265,7 +265,7 @@ MODULE network_solver
         REAL(dp):: drag_factor(reach_data%xsect_count), Af(reach_data%xsect_count), Ab(reach_data%xsect_count)
         REAL(dp):: Width_pred(reach_data%xsect_count), Width_cor(reach_data%xsect_count), Drag1D_pred(reach_data%xsect_count)
         REAL(dp):: Qcon, Discharge_old(reach_data%xsect_count), Qpred_zero, timestep_increase_buffer, Qdiff, Qdown, Qup
-        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety
+        REAL(dp):: Qtmp(reach_data%xsect_count), Area_old(reach_data%xsect_count), safety, ds_w
         LOGICAL:: implicit_friction=.TRUE., convective_terms=.TRUE., location_flags=.FALSE.
 
         ! Predefine some useful vars
@@ -295,12 +295,21 @@ MODULE network_solver
             print*, 'Start Pred'
         END IF
 
+        ! Get downstream boundary value
+        IF(index(reach_data%Downstream_boundary%compute_method,'stage')>0) THEN
+            ds_w = reach_data%Downstream_boundary%eval(time, 'stage')
+        ELSE
+            ds_w = 2.0_dp*reach_data%Stage(n) -reach_data%Stage(n-1)
+        END IF
+        
+
         ! Compute Area predictor Apred_i = Alast_i + dT/dX_v*[Qlast_(i+1/2) - Qlast_(i-1/2)],
         ! where Qlast_(i+1/2) ~= Qlast_(i+1)
         Area_pred(1:n-1) = reach_data%Area(1:n-1) -dT/delX_v(1:n-1)*&
                           (reach_data%Discharge(2:n) - reach_data%Discharge(1:n-1))
         ! Boundary condition
-        Area_pred(n) = reach_data%Area(n)
+        !Area_pred(n) = reach_data%Area(n)
+        Area_pred(n) = reach_data%xsects(n)%stage_etc_curve%eval(ds_w, 'stage', 'Area')
 
         ! Check it
         DO i=1,n-1

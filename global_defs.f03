@@ -41,7 +41,7 @@ MODULE global_defs
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Simulation duration parameters
 
-    integer, parameter, public:: max_its=10000 ! Number of time-steps
+    integer, parameter, public:: max_its=100000 ! Number of time-steps
    
     ! Start time for simulation 
     real(dp), PARAMETER, PUBLIC:: start_time=0._dp
@@ -49,6 +49,6 @@ MODULE global_defs
     character(len=charlen), PARAMETER, PUBLIC:: model_zero_datetime='Date/Time=25SEP2009,00:00'
    
     ! IO 
-    integer, parameter, public:: writfreq=1 ! Write every writfreq'th timestep
+    integer, parameter, public:: writfreq=10 ! Write every writfreq'th timestep
     character(len=charlen), PARAMETER, PUBLIC:: output_folder='outputs'
 END MODULE global_defs
